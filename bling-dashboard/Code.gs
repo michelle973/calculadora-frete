@@ -27,6 +27,9 @@ const ORDEM_CANAIS = ['Shopify + Matriz', 'Corporativo', 'Mercado Livre', 'Shope
 // Situações que NÃO entram na conta (padrão do Bling: 12 = Cancelado, 21 = Em digitação)
 const SITUACOES_EXCLUIDAS = [12, 21];
 
+// Produtos com estes termos no nome ficam fora do ranking (sem diferenciar maiúsculas/acentos)
+const TERMOS_EXCLUIDOS = ['personaliza'];
+
 const TOP_N = 5;
 const LIMITE_EXECUCAO_MS = 5 * 60 * 1000; // Apps Script corta em 6 min
 
@@ -225,7 +228,7 @@ function montarDashboard(abaItens, pedidosValidos, pendentes) {
   if (abaItens.getLastRow() > 1) {
     for (const [pedidoId, dataRaw, canal, paiId, nome, qtd] of
       abaItens.getRange(2, 1, abaItens.getLastRow() - 1, 6).getValues()) {
-      if (!pedidosValidos[pedidoId] || !soma[canal]) continue;
+      if (!pedidosValidos[pedidoId] || !soma[canal] || produtoExcluido(nome)) continue;
       const data = dataRaw instanceof Date ? fmt(dataRaw) : String(dataRaw);
       const reg = soma[canal][paiId] || (soma[canal][paiId] = { nome: nome, atual: 0, anterior: 0 });
       if (data >= atualIni && data <= atualFim) reg.atual += qtd;
@@ -307,6 +310,11 @@ function aba(nome, cabecalho) {
     }
   }
   return a;
+}
+
+function produtoExcluido(nome) {
+  const n = String(nome).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return TERMOS_EXCLUIDOS.some(t => n.indexOf(t) !== -1);
 }
 
 function addDias(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
