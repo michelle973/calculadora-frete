@@ -31,6 +31,7 @@ const SITUACOES_EXCLUIDAS = [12, 21];
 const TERMOS_EXCLUIDOS = ['personalizacao']; // não pega "personalizado/personalizada"
 
 const TOP_N = 5;
+const DIAS_HISTORICO = 60; // 30 dias + 30 anteriores
 const LIMITE_EXECUCAO_MS = 5 * 60 * 1000; // Apps Script corta em 6 min
 
 // ===== Menu =====
@@ -70,6 +71,16 @@ function ativarAutomatico() {
   ScriptApp.newTrigger('atualizar').timeBased().everyHours(1).create();
   SpreadsheetApp.getUi().alert('Pronto! O dashboard vai se atualizar sozinho a cada hora.');
 }
+
+// Se a carga não terminou, agenda outra rodada em 1 minuto (a primeira carga leva várias)
+function agendarContinuacao(pendentes) {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'continuarCarga')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+  if (pendentes) ScriptApp.newTrigger('continuarCarga').timeBased().after(60 * 1000).create();
+}
+
+function continuarCarga() { atualizar(); }
 
 // ===== Autenticação =====
 
@@ -128,10 +139,10 @@ function apiGet(caminho) {
 function atualizar() {
   const inicio = Date.now();
   const hoje = new Date();
-  const periodoIni = fmt(addDias(hoje, -14));
+  const periodoIni = fmt(addDias(hoje, -DIAS_HISTORICO));
   const periodoFim = fmt(addDias(hoje, -1));
 
-  // 1. Lista os pedidos dos últimos 14 dias (a listagem já traz loja e situação)
+  // 1. Lista os pedidos do período (a listagem já traz loja e situação)
   const pedidos = {};
   for (let pagina = 1; ; pagina++) {
     const r = apiGet('/pedidos/vendas?limite=100&pagina=' + pagina +
@@ -168,6 +179,7 @@ function atualizar() {
     abaItens.getRange(abaItens.getLastRow() + 1, 1, novasLinhas.length, 6).setValues(novasLinhas);
   }
   salvarCacheProdutos(cacheProdutos);
+  agendarContinuacao(pendentes);
 
   // 3. Monta o dashboard só com pedidos válidos no momento (se um pedido for cancelado depois, some da conta)
   montarDashboard(abaItens, pedidos, pendentes);
@@ -219,10 +231,14 @@ function produtoPai(item, cache) {
 
 function montarDashboard(abaItens, pedidosValidos, pendentes) {
   const hoje = new Date();
-  const atualIni = fmt(addDias(hoje, -7)), atualFim = fmt(addDias(hoje, -1));
-  const antIni = fmt(addDias(hoje, -14)), antFim = fmt(addDias(hoje, -8));
+  // Cada período: janela atual (até ontem) e a janela anterior de mesmo tamanho
+  const periodos = [7, 30].map(dias => ({
+    dias: dias,
+    atualIni: fmt(addDias(hoje, -dias)), atualFim: fmt(addDias(hoje, -1)),
+    antIni: fmt(addDias(hoje, -2 * dias)), antFim: fmt(addDias(hoje, -dias - 1)),
+  }));
 
-  // soma[canal][produtoPaiId] = { nome, atual, anterior }
+  // soma[canal][produtoPaiId] = { nome, a7, p7, a30, p30 }
   const soma = {};
   ORDEM_CANAIS.forEach(c => { soma[c] = {}; });
   if (abaItens.getLastRow() > 1) {
@@ -230,9 +246,11 @@ function montarDashboard(abaItens, pedidosValidos, pendentes) {
       abaItens.getRange(2, 1, abaItens.getLastRow() - 1, 6).getValues()) {
       if (!pedidosValidos[pedidoId] || !soma[canal] || produtoExcluido(nome)) continue;
       const data = dataRaw instanceof Date ? fmt(dataRaw) : String(dataRaw);
-      const reg = soma[canal][paiId] || (soma[canal][paiId] = { nome: nome, atual: 0, anterior: 0 });
-      if (data >= atualIni && data <= atualFim) reg.atual += qtd;
-      else if (data >= antIni && data <= antFim) reg.anterior += qtd;
+      const reg = soma[canal][paiId] || (soma[canal][paiId] = { nome: nome, a7: 0, p7: 0, a30: 0, p30: 0 });
+      for (const p of periodos) {
+        if (data >= p.atualIni && data <= p.atualFim) reg['a' + p.dias] += qtd;
+        else if (data >= p.antIni && data <= p.antFim) reg['p' + p.dias] += qtd;
+      }
     }
   }
 
@@ -241,55 +259,66 @@ function montarDashboard(abaItens, pedidosValidos, pendentes) {
   d.getRange('A1').setValue('Top ' + TOP_N + ' produtos por canal (unidades vendidas)')
     .setFontSize(16).setFontWeight('bold');
   d.getRange('A2').setValue(
-    'Últimos 7 dias: ' + br(atualIni) + ' a ' + br(atualFim) +
-    '   |   Semana anterior: ' + br(antIni) + ' a ' + br(antFim) +
+    periodos.map(p => p.dias + ' dias: ' + br(p.atualIni) + ' a ' + br(p.atualFim) +
+      ' vs ' + br(p.antIni) + ' a ' + br(p.antFim)).join('   |   ') +
     '   |   Atualizado em ' + Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm') +
     (pendentes ? '   |   ⚠ ' + pendentes + ' pedidos ainda sendo carregados' : ''))
     .setFontColor('#666666');
 
+  // 7 dias nas colunas A-E, 30 dias nas colunas G-K
+  const colunas = { 7: 1, 30: 7 };
   let linha = 4;
   for (const canal of ORDEM_CANAIS) {
-    const lista = Object.values(soma[canal])
-      .filter(r => r.atual > 0)
-      .sort((a, b) => b.atual - a.atual)
-      .slice(0, TOP_N);
-
     d.getRange(linha, 1).setValue(canal).setFontSize(13).setFontWeight('bold');
     linha++;
-    d.getRange(linha, 1, 1, 5)
-      .setValues([['#', 'Produto', 'Últimos 7 dias', 'Semana anterior', 'Variação']])
-      .setFontWeight('bold').setBackground('#efefef');
-    linha++;
-
-    if (!lista.length) {
-      d.getRange(linha, 2).setValue('Sem vendas no período').setFontColor('#999999');
-      linha += 2;
-      continue;
+    let altura = 0;
+    for (const p of periodos) {
+      altura = Math.max(altura, tabelaTop(d, linha, colunas[p.dias], Object.values(soma[canal]), p.dias));
     }
-    const valores = lista.map((r, i) => [
-      i + 1, r.nome, r.atual, r.anterior,
-      r.anterior ? (r.atual - r.anterior) / r.anterior : 'novo',
-    ]);
-    d.getRange(linha, 1, valores.length, 5).setValues(valores);
-    d.getRange(linha, 5, valores.length, 1).setNumberFormat('+0%;-0%;0%');
-    valores.forEach((v, i) => {
-      if (typeof v[4] === 'number') {
-        d.getRange(linha + i, 5).setFontColor(v[4] > 0 ? '#188038' : v[4] < 0 ? '#d93025' : '#000000');
-      }
-    });
-    linha += valores.length + 1;
+    linha += altura + 2;
   }
-  d.setColumnWidth(1, 40);
-  d.setColumnWidth(2, 380);
-  d.setColumnWidths(3, 3, 130);
-  d.getRange(4, 3, Math.max(linha - 4, 1), 3).setHorizontalAlignment('center');
+  for (const col of [1, 7]) {
+    d.setColumnWidth(col, 30);
+    d.setColumnWidth(col + 1, 340);
+    d.setColumnWidths(col + 2, 3, 110);
+    d.getRange(4, col + 2, Math.max(linha - 4, 1), 3).setHorizontalAlignment('center');
+  }
+  d.setColumnWidth(6, 30);
 
   limparItensAntigos(abaItens);
 }
 
+// Escreve a tabela Top N de um período e devolve quantas linhas de dados ocupou
+function tabelaTop(d, linha, col, registros, dias) {
+  const atual = 'a' + dias, ant = 'p' + dias;
+  const lista = registros.filter(r => r[atual] > 0)
+    .sort((a, b) => b[atual] - a[atual])
+    .slice(0, TOP_N);
+
+  d.getRange(linha, col, 1, 5)
+    .setValues([['#', 'Produto', 'Últimos ' + dias + ' dias', dias + ' dias anteriores', 'Variação']])
+    .setFontWeight('bold').setBackground('#efefef');
+  if (!lista.length) {
+    d.getRange(linha + 1, col + 1).setValue('Sem vendas no período').setFontColor('#999999');
+    return 1;
+  }
+  const valores = lista.map((r, i) => [
+    i + 1, r.nome, r[atual], r[ant],
+    r[ant] ? (r[atual] - r[ant]) / r[ant] : 'novo',
+  ]);
+  d.getRange(linha + 1, col, valores.length, 5).setValues(valores);
+  d.getRange(linha + 1, col + 4, valores.length, 1).setNumberFormat('+0%;-0%;0%');
+  valores.forEach((v, i) => {
+    if (typeof v[4] === 'number') {
+      d.getRange(linha + 1 + i, col + 4).setFontColor(v[4] > 0 ? '#188038' : v[4] < 0 ? '#d93025' : '#000000');
+    }
+  });
+  return valores.length;
+}
+
 function limparItensAntigos(abaItens) {
   if (abaItens.getLastRow() < 2) return;
-  const limite = fmt(addDias(new Date(), -30));
+  const limite = fmt(addDias(new Date(), -(DIAS_HISTORICO + 5)));
   const linhas = abaItens.getRange(2, 1, abaItens.getLastRow() - 1, 6).getValues();
   const manter = linhas.filter(l => (l[1] instanceof Date ? fmt(l[1]) : String(l[1])) >= limite);
   if (manter.length === linhas.length) return;
