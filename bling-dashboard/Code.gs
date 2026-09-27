@@ -28,7 +28,7 @@ const ORDEM_CANAIS = ['Shopify + Matriz', 'Corporativo', 'Mercado Livre', 'Shope
 const SITUACOES_EXCLUIDAS = [12, 21];
 
 // Produtos com estes termos no nome ficam fora do ranking (sem diferenciar maiúsculas/acentos)
-const TERMOS_EXCLUIDOS = ['personaliza'];
+const TERMOS_EXCLUIDOS = ['personalizacao']; // não pega "personalizado/personalizada"
 
 const TOP_N = 5;
 const LIMITE_EXECUCAO_MS = 5 * 60 * 1000; // Apps Script corta em 6 min
