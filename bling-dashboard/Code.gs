@@ -69,7 +69,8 @@ const LIMITE_EXECUCAO_MS = 5 * 60 * 1000; // Apps Script corta em 6 min
 const INTERVALO_COMPLETA_MS = 6 * 3600 * 1000; // releitura completa dos 60 dias a cada 6h
 
 const COLS_PEDIDOS = ['pedidoId', 'data', 'lojaId', 'situacaoId', 'vendedorId', 'total', 'frete', 'detalhe'];
-const COLS_ITENS = ['pedidoId', 'data', 'canal', 'produtoPaiId', 'produto', 'quantidade'];
+const COLS_ITENS = ['pedidoId', 'data', 'canal', 'produtoPaiId', 'produto', 'quantidade', 'valor'];
+const N_ITENS = COLS_ITENS.length;
 
 // ===== Menu =====
 
@@ -214,6 +215,7 @@ function atualizarInterno() {
   const abaPed = aba('Pedidos', COLS_PEDIDOS);
   const pedidos = lerPedidos(abaPed);
   const abaItens = aba('Itens', COLS_ITENS);
+  abaItens.getRange(1, 1, 1, N_ITENS).setValues([COLS_ITENS]); // planilhas antigas não tinham "valor"
   const comItens = new Set(abaItens.getLastRow() > 1
     ? abaItens.getRange(2, 1, abaItens.getLastRow() - 1, 1).getValues().map(l => String(l[0]))
     : []);
@@ -248,13 +250,15 @@ function atualizarInterno() {
     if (precisaItens) {
       for (const item of d.itens || []) {
         const pai = produtoPai(item, cacheProdutos);
-        novasLinhas.push([id, l.data, canal, pai.id, pai.nome, Number(item.quantidade) || 0]);
+        const qtd = Number(item.quantidade) || 0;
+        const unitario = (Number(item.valor) || 0) * (1 - (Number(item.desconto) || 0) / 100);
+        novasLinhas.push([id, l.data, canal, pai.id, pai.nome, qtd, qtd * unitario]);
       }
       comItens.add(id);
     }
   }
   if (novasLinhas.length) {
-    abaItens.getRange(abaItens.getLastRow() + 1, 1, novasLinhas.length, 6).setValues(novasLinhas);
+    abaItens.getRange(abaItens.getLastRow() + 1, 1, novasLinhas.length, N_ITENS).setValues(novasLinhas);
   }
   salvarCacheProdutos(cacheProdutos);
   salvarVendedores(vendedores);
@@ -377,21 +381,41 @@ function montarDashboard(abaItens, pedidosValidos, pendentes) {
     antIni: fmt(addDias(hoje, -2 * dias)), antFim: fmt(addDias(hoje, -dias - 1)),
   }));
 
-  // soma[canal][produtoPaiId] = { nome, a7, p7, a30, p30 }
+  // soma[canal][produtoPaiId] = { paiId, nome, a7, p7, a30, p30, valor30, qtdValor30 }
   const soma = {};
   ORDEM_CANAIS.forEach(c => { soma[c] = {}; });
   if (abaItens.getLastRow() > 1) {
-    for (const [pedidoId, dataRaw, canal, paiId, nome, qtd] of
-      abaItens.getRange(2, 1, abaItens.getLastRow() - 1, 6).getValues()) {
+    for (const [pedidoId, dataRaw, canal, paiId, nome, qtd, valor] of
+      abaItens.getRange(2, 1, abaItens.getLastRow() - 1, N_ITENS).getValues()) {
       if (!pedidosValidos[pedidoId] || !soma[canal] || produtoExcluido(nome)) continue;
       const data = dataRaw instanceof Date ? fmt(dataRaw) : String(dataRaw);
-      const reg = soma[canal][paiId] || (soma[canal][paiId] = { nome: nome, a7: 0, p7: 0, a30: 0, p30: 0 });
+      const reg = soma[canal][paiId] || (soma[canal][paiId] =
+        { paiId: paiId, nome: nome, a7: 0, p7: 0, a30: 0, p30: 0, valor30: 0, qtdValor30: 0 });
       for (const p of periodos) {
         if (data >= p.atualIni && data <= p.atualFim) reg['a' + p.dias] += qtd;
         else if (data >= p.antIni && data <= p.antFim) reg['p' + p.dias] += qtd;
       }
+      // preço médio: só linhas que têm valor (itens carregados antes desta versão não têm)
+      if (valor !== '' && data >= periodos[1].atualIni && data <= periodos[1].atualFim) {
+        reg.valor30 += Number(valor) || 0;
+        reg.qtdValor30 += qtd;
+      }
     }
   }
+
+  // Top N de cada canal/período e estoque disponível dos produtos que aparecem
+  const tops = {};
+  const paisVisiveis = new Set();
+  for (const canal of ORDEM_CANAIS) {
+    tops[canal] = {};
+    for (const p of periodos) {
+      const k = 'a' + p.dias;
+      tops[canal][p.dias] = Object.values(soma[canal]).filter(r => r[k] > 0)
+        .sort((a, b) => b[k] - a[k]).slice(0, TOP_N);
+      tops[canal][p.dias].forEach(r => paisVisiveis.add(String(r.paiId)));
+    }
+  }
+  const estoque = estoqueDisponivel(Array.from(paisVisiveis));
 
   const d = aba('Dashboard');
   d.clear();
@@ -404,49 +428,50 @@ function montarDashboard(abaItens, pedidosValidos, pendentes) {
     (pendentes ? '   |   ⚠ ' + pendentes + ' pedidos ainda sendo carregados' : ''))
     .setFontColor('#666666');
 
-  // 7 dias nas colunas A-E, 30 dias nas colunas G-K
-  const colunas = { 7: 1, 30: 7 };
+  // 7 dias nas colunas A-F, 30 dias nas colunas H-N
+  const colunas = { 7: 1, 30: 8 };
   let linha = 4;
   for (const canal of ORDEM_CANAIS) {
     d.getRange(linha, 1).setValue(canal).setFontSize(13).setFontWeight('bold');
     linha++;
     let altura = 0;
     for (const p of periodos) {
-      altura = Math.max(altura, tabelaTop(d, linha, colunas[p.dias], Object.values(soma[canal]), p.dias));
+      altura = Math.max(altura, tabelaTop(d, linha, colunas[p.dias], tops[canal][p.dias], p.dias, estoque));
     }
     linha += altura + 2;
   }
-  for (const col of [1, 7]) {
+  for (const [col, nCols] of [[1, 6], [8, 7]]) {
     d.setColumnWidth(col, 30);
-    d.setColumnWidth(col + 1, 340);
-    d.setColumnWidths(col + 2, 3, 110);
-    d.getRange(4, col + 2, Math.max(linha - 4, 1), 3).setHorizontalAlignment('center');
+    d.setColumnWidth(col + 1, 320);
+    d.setColumnWidths(col + 2, nCols - 2, 105);
+    d.getRange(4, col + 2, Math.max(linha - 4, 1), nCols - 2).setHorizontalAlignment('center');
   }
-  d.setColumnWidth(6, 30);
+  d.setColumnWidth(7, 30);
 
   limparItensAntigos(abaItens);
 }
 
-// Escreve a tabela Top N de um período e devolve quantas linhas de dados ocupou
-function tabelaTop(d, linha, col, registros, dias) {
+// Escreve a tabela Top N de um período e devolve quantas linhas de dados ocupou.
+// 7 dias: # | Produto | atual | anterior | Variação | Estoque
+// 30 dias: idem + Preço médio antes do Estoque
+function tabelaTop(d, linha, col, lista, dias, estoque) {
   const atual = 'a' + dias, ant = 'p' + dias;
-  const lista = registros.filter(r => r[atual] > 0)
-    .sort((a, b) => b[atual] - a[atual])
-    .slice(0, TOP_N);
-
-  d.getRange(linha, col, 1, 5)
-    .setValues([['#', 'Produto', 'Últimos ' + dias + ' dias', dias + ' dias anteriores', 'Variação']])
-    .setFontWeight('bold').setBackground('#efefef');
+  const comPreco = dias === 30;
+  const cab = ['#', 'Produto', 'Últimos ' + dias + ' dias', dias + ' dias anteriores', 'Variação']
+    .concat(comPreco ? ['Preço médio'] : [], ['Estoque disp.']);
+  d.getRange(linha, col, 1, cab.length).setValues([cab]).setFontWeight('bold').setBackground('#efefef');
   if (!lista.length) {
     d.getRange(linha + 1, col + 1).setValue('Sem vendas no período').setFontColor('#999999');
     return 1;
   }
-  const valores = lista.map((r, i) => [
-    i + 1, r.nome, r[atual], r[ant],
-    r[ant] ? (r[atual] - r[ant]) / r[ant] : 'novo',
-  ]);
-  d.getRange(linha + 1, col, valores.length, 5).setValues(valores);
+  const valores = lista.map((r, i) => {
+    const est = estoque[String(r.paiId)];
+    return [i + 1, r.nome, r[atual], r[ant], r[ant] ? (r[atual] - r[ant]) / r[ant] : 'novo']
+      .concat(comPreco ? [r.qtdValor30 ? r.valor30 / r.qtdValor30 : '—'] : [], [est === undefined ? '—' : est]);
+  });
+  d.getRange(linha + 1, col, valores.length, cab.length).setValues(valores);
   d.getRange(linha + 1, col + 4, valores.length, 1).setNumberFormat('+0%;-0%;0%');
+  if (comPreco) d.getRange(linha + 1, col + 5, valores.length, 1).setNumberFormat('"R$" #,##0.00');
   valores.forEach((v, i) => {
     if (typeof v[4] === 'number') {
       d.getRange(linha + 1 + i, col + 4).setFontColor(v[4] > 0 ? '#188038' : v[4] < 0 ? '#d93025' : '#000000');
@@ -455,14 +480,58 @@ function tabelaTop(d, linha, col, registros, dias) {
   return valores.length;
 }
 
+// ===== Estoque =====
+
+// Saldo virtual (disponível) de cada produto pai, somando todas as variações.
+// Devolve { paiId: saldo }; produtos sem permissão/sem cadastro ficam de fora.
+function estoqueDisponivel(paiIds) {
+  const ids = paiIds.filter(id => /^\d+$/.test(id));
+  if (!ids.length) return {};
+
+  // Variações de cada pai (guardadas na aba "Variacoes" para não consultar toda vez)
+  const abaVar = aba('Variacoes', ['produtoPaiId', 'variacoesIds']);
+  const variacoes = {};
+  if (abaVar.getLastRow() > 1) {
+    abaVar.getRange(2, 1, abaVar.getLastRow() - 1, 2).getValues()
+      .forEach(([pai, lista]) => { variacoes[String(pai)] = String(lista).split(',').filter(x => x); });
+  }
+  const novas = [];
+  for (const pai of ids) {
+    if (variacoes[pai]) continue;
+    const r = apiGet('/produtos/' + pai, true);
+    const lista = r && r.data && r.data.variacoes && r.data.variacoes.length
+      ? r.data.variacoes.map(v => String(v.id))
+      : [pai]; // produto simples: o saldo é dele mesmo
+    variacoes[pai] = lista;
+    novas.push([pai, lista.join(',')]);
+  }
+  if (novas.length) abaVar.getRange(abaVar.getLastRow() + 1, 1, novas.length, 2).setValues(novas);
+
+  // Saldos em lotes de 50 produtos
+  const todos = [];
+  ids.forEach(pai => variacoes[pai].forEach(v => todos.push(v)));
+  const saldo = {};
+  for (let i = 0; i < todos.length; i += 50) {
+    const lote = todos.slice(i, i + 50);
+    const r = apiGet('/estoques/saldos?' + lote.map(id => 'idsProdutos%5B%5D=' + id).join('&'), true);
+    if (!r || !r.data) return {}; // sem permissão de estoque no app
+    r.data.forEach(e => { saldo[String(e.produto.id)] = Number(e.saldoVirtualTotal) || 0; });
+  }
+  const resultado = {};
+  ids.forEach(pai => {
+    resultado[pai] = variacoes[pai].reduce((s, v) => s + (saldo[v] || 0), 0);
+  });
+  return resultado;
+}
+
 function limparItensAntigos(abaItens) {
   if (abaItens.getLastRow() < 2) return;
   const limite = fmt(addDias(new Date(), -(DIAS_HISTORICO + 5)));
-  const linhas = abaItens.getRange(2, 1, abaItens.getLastRow() - 1, 6).getValues();
+  const linhas = abaItens.getRange(2, 1, abaItens.getLastRow() - 1, N_ITENS).getValues();
   const manter = linhas.filter(l => (l[1] instanceof Date ? fmt(l[1]) : String(l[1])) >= limite);
   if (manter.length === linhas.length) return;
-  abaItens.getRange(2, 1, linhas.length, 6).clearContent();
-  if (manter.length) abaItens.getRange(2, 1, manter.length, 6).setValues(manter);
+  abaItens.getRange(2, 1, linhas.length, N_ITENS).clearContent();
+  if (manter.length) abaItens.getRange(2, 1, manter.length, N_ITENS).setValues(manter);
 }
 
 // ===== Página web: dashboards Meta Marketplaces e Meta Grupo =====
