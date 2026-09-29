@@ -65,7 +65,7 @@ const VENDEDOR_GRUPO = {
 
 const TOP_N = 5;
 const DIAS_HISTORICO = 60; // 30 dias + 30 anteriores
-const LIMITE_EXECUCAO_MS = 5 * 60 * 1000; // Apps Script corta em 6 min
+const LIMITE_EXECUCAO_MS = 4 * 60 * 1000; // Apps Script corta em 6 min; sobra tempo para gravar
 const INTERVALO_COMPLETA_MS = 6 * 3600 * 1000; // releitura completa dos 60 dias a cada 6h
 
 const COLS_PEDIDOS = ['pedidoId', 'data', 'lojaId', 'situacaoId', 'vendedorId', 'total', 'frete', 'detalhe'];
@@ -110,12 +110,12 @@ function ativarAutomatico() {
   SpreadsheetApp.getUi().alert('Pronto! Os dashboards vão se atualizar sozinhos a cada 15 minutos.');
 }
 
-// Se a carga não terminou, agenda outra rodada em 1 minuto (a primeira carga leva várias)
-function agendarContinuacao(pendentes) {
+// Se a carga não terminou, agenda outra rodada (a primeira carga leva várias)
+function agendarContinuacao(pendentes, minutos) {
   ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === 'continuarCarga')
     .forEach(t => ScriptApp.deleteTrigger(t));
-  if (pendentes) ScriptApp.newTrigger('continuarCarga').timeBased().after(60 * 1000).create();
+  if (pendentes) ScriptApp.newTrigger('continuarCarga').timeBased().after((minutos || 1) * 60 * 1000).create();
 }
 
 function continuarCarga() { atualizar(); }
@@ -187,6 +187,8 @@ function atualizar() {
 
 function atualizarInterno() {
   const inicio = Date.now();
+  // Rede de segurança: se esta rodada for interrompida, outra começa em 8 minutos
+  agendarContinuacao(true, 8);
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SS_ID', SpreadsheetApp.getActiveSpreadsheet().getId());
   const hoje = new Date();
