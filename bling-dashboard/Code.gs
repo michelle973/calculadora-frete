@@ -421,6 +421,7 @@ function montarDashboard(abaItens, pedidosValidos, pendentes) {
 
   const d = aba('Dashboard');
   d.clear();
+  d.clearFormats(); // o layout mudou de colunas; não deixar formato antigo (%) sobrar
   d.getRange('A1').setValue('Top ' + TOP_N + ' produtos por canal (unidades vendidas)')
     .setFontSize(16).setFontWeight('bold');
   d.getRange('A2').setValue(
@@ -472,7 +473,9 @@ function tabelaTop(d, linha, col, lista, dias, estoque) {
       .concat(comPreco ? [r.qtdValor30 ? r.valor30 / r.qtdValor30 : '—'] : [], [est === undefined ? '—' : est]);
   });
   d.getRange(linha + 1, col, valores.length, cab.length).setValues(valores);
+  d.getRange(linha + 1, col + 2, valores.length, 2).setNumberFormat('0');
   d.getRange(linha + 1, col + 4, valores.length, 1).setNumberFormat('+0%;-0%;0%');
+  d.getRange(linha + 1, cab.length + col - 1, valores.length, 1).setNumberFormat('0');
   if (comPreco) d.getRange(linha + 1, col + 5, valores.length, 1).setNumberFormat('"R$" #,##0.00');
   valores.forEach((v, i) => {
     if (typeof v[4] === 'number') {
