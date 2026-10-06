@@ -32,7 +32,8 @@ const SITUACOES_EXCLUIDAS = [12, 21];
 const TERMOS_EXCLUIDOS = ['personalizacao']; // não pega "personalizado/personalizada"
 
 // Dashboard Meta Marketplaces: faturamento líquido = Total Venda - Frete
-const META_MARKETPLACES = 70000;
+// Metas ficam na aba "Metas" da planilha; estes valores só preenchem a aba na primeira vez
+const META_MARKETPLACES = 50000;
 const MARKETPLACES = [
   { nome: 'Mercado Livre', lojas: [204859624], legenda: 'Vendas sem vendedor · líquido' },
   { nome: 'Shopee', lojas: [205453078], legenda: 'Total Venda - Frete' },
@@ -40,13 +41,13 @@ const MARKETPLACES = [
 ];
 
 // Dashboard Meta Grupo: base = Total Venda, por vendedor
-const META_GRUPO = 145000;
+// Meta total do grupo = soma das metas dos grupos
 const GRUPOS = [
   { nome: 'Hursula', meta: 50000 },
-  { nome: 'Carlos', meta: 15000 },
-  { nome: 'Mitcha', meta: 20000 },
-  { nome: 'Outros', meta: 20000 },
-  { nome: 'Loja', meta: 40000 },
+  { nome: 'Carlos', meta: 40000 },
+  { nome: 'Mitcha', meta: 25000 },
+  { nome: 'Outros', meta: 10000 },
+  { nome: 'Loja', meta: 57000 },
 ];
 // Nome do vendedor no Bling (sem acento, minúsculo) -> grupo. Vendedor fora da lista é ignorado.
 // A aba "Vendedores" guarda o grupo de cada vendedor e pode ser corrigida à mão.
@@ -191,6 +192,7 @@ function atualizarInterno() {
   agendarContinuacao(true, 8);
   const props = PropertiesService.getScriptProperties();
   props.setProperty('SS_ID', SpreadsheetApp.getActiveSpreadsheet().getId());
+  lerMetas(SpreadsheetApp.getActiveSpreadsheet()); // cria a aba Metas se ainda não existir
   const hoje = new Date();
   const inicioMes = fmt(hoje).slice(0, 8) + '01';
 
@@ -596,7 +598,28 @@ function calcularMetas() {
     pendentes: Number(props.getProperty('PENDENTES') || 0),
     porMarketplace: porMarketplace,
     porGrupo: porGrupo,
+    metas: lerMetas(ss),
   };
+}
+
+// Lê a aba "Metas" (criada com os valores padrão se não existir). Devolve { Marketplaces, Hursula, ... }
+function lerMetas(ss) {
+  const padrao = [['Marketplaces', META_MARKETPLACES]].concat(GRUPOS.map(g => [g.nome, g.meta]));
+  let a = ss.getSheetByName('Metas');
+  if (!a) {
+    a = ss.insertSheet('Metas');
+    a.getRange(1, 1, 1, 2).setValues([['meta', 'valor (R$)']]).setFontWeight('bold');
+    a.getRange(2, 1, padrao.length, 2).setValues(padrao);
+  }
+  const metas = {};
+  padrao.forEach(([nome, valor]) => { metas[nome] = valor; });
+  if (a.getLastRow() > 1) {
+    a.getRange(2, 1, a.getLastRow() - 1, 2).getValues().forEach(([nome, valor]) => {
+      const v = Number(String(valor).replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+      if (metas[String(nome).trim()] !== undefined && v > 0) metas[String(nome).trim()] = v;
+    });
+  }
+  return metas;
 }
 
 function resumoMeta(total, meta, dados) {
@@ -612,7 +635,7 @@ function resumoMeta(total, meta, dados) {
 
 function paginaMarketplaces(dados) {
   const total = MARKETPLACES.reduce((s, m) => s + dados.porMarketplace[m.nome], 0);
-  const r = resumoMeta(total, META_MARKETPLACES, dados);
+  const r = resumoMeta(total, dados.metas.Marketplaces, dados);
   const itens = MARKETPLACES.map(m => {
     const v = dados.porMarketplace[m.nome];
     return '<div class="item"><div><div class="item-nome">' + m.nome + '</div>' +
@@ -626,12 +649,14 @@ function paginaMarketplaces(dados) {
 
 function paginaGrupo(dados) {
   const total = GRUPOS.reduce((s, g) => s + dados.porGrupo[g.nome], 0);
-  const r = resumoMeta(total, META_GRUPO, dados);
+  const metaTotal = GRUPOS.reduce((s, g) => s + dados.metas[g.nome], 0);
+  const r = resumoMeta(total, metaTotal, dados);
   const itens = GRUPOS.map(g => {
     const v = dados.porGrupo[g.nome];
-    const p = g.meta ? v / g.meta : 0;
+    const meta = dados.metas[g.nome];
+    const p = meta ? v / meta : 0;
     return '<div class="item item-meta"><div class="item-linha"><div><div class="item-nome">' + g.nome + '</div>' +
-      '<div class="item-sub">Meta: ' + brl(g.meta) + '</div></div>' +
+      '<div class="item-sub">Meta: ' + brl(meta) + '</div></div>' +
       '<div class="item-dir"><div class="item-valor">' + brl(v) + '</div>' +
       '<div class="item-pct">' + pct(p) + '</div></div></div>' +
       '<div class="barra fina"><div class="barra-fill ' + (p >= 0.8 ? 'verde' : 'rosa') + '" style="width:' +
