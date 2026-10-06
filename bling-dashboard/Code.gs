@@ -46,7 +46,7 @@ const GRUPOS = [
   { nome: 'Hursula', meta: 50000 },
   { nome: 'Carlos', meta: 40000 },
   { nome: 'Mitcha', meta: 25000 },
-  { nome: 'Outros', meta: 10000 },
+  { nome: 'Outros', meta: 18000 },
   { nome: 'Loja', meta: 57000 },
 ];
 // Nome do vendedor no Bling (sem acento, minúsculo) -> grupo. Vendedor fora da lista é ignorado.
