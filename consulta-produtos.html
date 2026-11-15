@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amouh — Consulta de Produtos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+#lock-screen {
+  position: fixed; inset: 0; background: #f7f6f3;
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+}
+.lock-box {
+  background: #fff; border: 1px solid #e4e2db; border-radius: 12px;
+  padding: 2rem 1.5rem; width: 320px; text-align: center;
+}
+.lock-logo { width: 48px; height: 48px; background: #1a1a2e; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
+.lock-logo span { color: #fff; font-size: 15px; font-weight: 600; }
+.lock-box h2 { font-size: 17px; font-weight: 600; margin-bottom: 4px; color: #1a1a1a; }
+.lock-box p { font-size: 13px; color: #6b6860; margin-bottom: 1.25rem; }
+.lock-box input {
+  width: 100%; padding: 11px 14px; border: 1.5px solid #ccc9be;
+  border-radius: 8px; font-family: inherit; font-size: 15px;
+  outline: none; margin-bottom: 10px; text-align: center; letter-spacing: 2px;
+}
+.lock-box input:focus { border-color: #1a1a2e; }
+.lock-box button {
+  width: 100%; padding: 11px; background: #1a1a2e; color: #fff;
+  border: none; border-radius: 8px; font-family: inherit; font-size: 15px;
+  font-weight: 600; cursor: pointer;
+}
+.lock-box button:hover { background: #2d2d4a; }
+.lock-error { font-size: 12px; color: #c0392b; margin-top: 8px; display: none; }
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --border: #e4e2db;
+  --border-strong: #ccc9be;
+  --text: #1a1a1a;
+  --text-muted: #6b6860;
+  --text-faint: #a09d96;
+  --accent: #1a1a2e;
+  --green: #0f6e56;
+  --info-bg: #e8f4f0;
+  --info-text: #0f6e56;
+  --tag-bg: #f0ede6;
+  --tag-text: #5c5849;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.page { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+/* HEADER */
+.site-header { display: flex; align-items: center; gap: 14px; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.logo-box { width: 44px; height: 44px; background: var(--accent); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-box span { color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
+.header-text h1 { font-size: 18px; font-weight: 600; color: var(--text); }
+.header-text p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* PRAZOS */
+.prazos { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; margin-bottom: 1rem; }
+.prazos-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-faint); margin-bottom: 8px; }
+.prazos-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+.prazo-item { background: var(--bg); border-radius: var(--radius-sm); padding: 5px 8px; }
+.prazo-qtd { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 1px; }
+.prazo-val { font-size: 12px; font-weight: 500; color: var(--text); }
+.prazo-val.destaque { color: var(--green); }
+.prazos-obs { font-size: 10px; color: var(--text-faint); margin-top: 6px; border-top: 1px solid var(--border); padding-top: 6px; }
+
+/* PERSONALIZAÇÕES */
+.pers-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; margin-bottom: 1.5rem; }
+.pers-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-faint); margin-bottom: 8px; }
+.pers-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pers-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); background: var(--bg); padding: 5px 6px; text-align: center; }
+.pers-table th:first-child { text-align: left; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.pers-table th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.pers-table td { padding: 5px 6px; text-align: center; border-bottom: 1px solid var(--bg); font-size: 12px; }
+.pers-table td:first-child { text-align: left; font-weight: 500; }
+.pers-table tr:last-child td { border-bottom: none; }
+.pers-table td.incluso, .pers-table td.zero { color: var(--green); font-weight: 600; }
+
+/* CARRINHO */
+.cart-btn-wrap { margin-bottom: 1.5rem; }
+.cart-toggle-btn { width: 100%; padding: 11px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cart-toggle-btn:hover { background: #2d2d4a; }
+.cart-count { background: #F2C6CE; color: var(--accent); border-radius: 999px; padding: 1px 7px; font-size: 12px; font-weight: 700; }
+.cart-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: none; }
+.cart-panel.open { display: block; }
+.cart-panel-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+.cart-empty { font-size: 13px; color: var(--text-faint); text-align: center; padding: 1rem 0; }
+.cart-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.cart-item:last-of-type { border-bottom: none; }
+.cart-item-name { flex: 1; font-size: 13px; color: var(--text); font-weight: 500; }
+.cart-item-qty { font-size: 12px; color: var(--text-muted); }
+.cart-item-price { font-size: 13px; font-weight: 600; color: var(--green); white-space: nowrap; }
+.cart-item-remove { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 16px; padding: 2px 4px; }
+.cart-item-remove:hover { color: #c0392b; }
+.cart-total { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; margin-top: 4px; border-top: 1.5px solid var(--border); }
+.cart-total-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.cart-total-val { font-size: 16px; font-weight: 700; color: var(--accent); }
+.cart-actions { display: flex; gap: 8px; margin-top: 12px; }
+.cart-clear-btn { flex: 1; padding: 9px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; cursor: pointer; color: var(--text-muted); }
+.cart-pdf-btn { flex: 2; padding: 9px; background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cart-pdf-btn:hover { background: #0a5a46; }
+/* Modal de quantidade */
+.qty-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.qty-modal { background: #fff; border-radius: var(--radius); padding: 1.5rem; width: 320px; max-height: 90vh; overflow-y: auto; }
+.qty-modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+.qty-modal p { font-size: 12px; color: var(--text-muted); margin-bottom: 1rem; }
+.qty-modal input { width: 100%; padding: 10px; border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: 16px; text-align: center; outline: none; margin-bottom: 10px; }
+.qty-modal input:focus { border-color: var(--accent); }
+.qty-modal-btns { display: flex; gap: 8px; }
+.qty-cancel { flex: 1; padding: 9px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; cursor: pointer; }
+.qty-confirm { flex: 2; padding: 9px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pers-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.pers-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 8px; }
+.pers-option { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; cursor: pointer; transition: all .12s; }
+.pers-option:hover { border-color: var(--accent); background: var(--bg); }
+.pers-option.selected { border-color: var(--accent); background: #e8edf5; }
+.pers-option-left { display: flex; align-items: center; gap: 8px; }
+.pers-option-check { width: 16px; height: 16px; border: 1.5px solid var(--border-strong); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent); }
+.pers-option.selected .pers-option-check { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pers-option-name { font-size: 13px; color: var(--text); }
+.pers-option-price { font-size: 12px; font-weight: 600; color: var(--green); }
+.add-cart-btn { margin-top: 8px; width: 100%; padding: 8px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--accent); }
+.add-cart-btn:hover { background: var(--accent); color: #fff; }
+@media print { #lock-screen, .cart-btn-wrap, .cart-panel, .search-wrap, .sugs, .results, .prazos, .pers-block { display: none !important; } }
+
+/* SEARCH */
+.search-wrap { position: relative; margin-bottom: 1rem; }
+.search-wrap input {
+  width: 100%; padding: 13px 48px 13px 16px;
+  border: 1.5px solid var(--border-strong); border-radius: var(--radius);
+  font-family: inherit; font-size: 15px; color: var(--text);
+  background: var(--surface); outline: none; transition: border-color .15s;
+}
+.search-wrap input:focus { border-color: var(--accent); }
+.search-wrap input::placeholder { color: var(--text-faint); }
+.clear-btn {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--text-muted);
+  font-size: 18px; line-height: 1; padding: 4px; display: none;
+}
+.clear-btn.visible { display: block; }
+
+/* SUGESTÕES */
+.sugs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.5rem; }
+.sug {
+  font-size: 12px; padding: 5px 12px;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  cursor: pointer; color: var(--text-muted); background: var(--surface);
+  transition: all .12s; font-family: inherit;
+}
+.sug:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* COUNT */
+.count { font-size: 12px; color: var(--text-faint); margin-bottom: 1rem; }
+
+/* CARDS */
+.results { display: flex; flex-direction: column; gap: 12px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.1rem 1.25rem;
+  transition: border-color .15s;
+}
+.card:hover { border-color: var(--border-strong); }
+.card-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.card-sku { font-size: 11px; color: var(--text-faint); margin-bottom: 10px; font-family: monospace; letter-spacing: 0.3px; }
+.badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 500; }
+.badge-pers { background: var(--info-bg); color: var(--info-text); }
+.badge-var { background: var(--tag-bg); color: var(--tag-text); }
+.sec-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-faint); margin-bottom: 6px; }
+
+/* TABELAS */
+.preco-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+.preco-table th {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-muted); background: var(--bg); padding: 5px 8px; text-align: center;
+}
+.preco-table th:first-child { text-align: left; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.preco-table th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.preco-table td { padding: 5px 8px; text-align: center; border-bottom: 1px solid var(--bg); color: var(--text); font-size: 13px; }
+.preco-table td:first-child { text-align: left; font-weight: 500; }
+.preco-table tr:last-child td { border-bottom: none; }
+.preco-table td.best { color: var(--green); font-weight: 600; }
+.faixas-grid { display: none; }
+@media (max-width: 600px) {
+  .preco-table { display: none; }
+  .faixas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .fi { background: var(--bg); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .fi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 3px; }
+  .fi-val { font-size: 14px; font-weight: 500; color: var(--text); }
+  .fi-val.best { color: var(--green); font-weight: 700; }
+}
+/* Mobile: empilhar preços em grid 2 colunas */
+.faixas-mobile { display: none; }
+@media (max-width: 600px) {
+  .preco-table { display: none; }
+  .faixas-mobile { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .faixa-item { background: var(--bg); border-radius: var(--radius-sm); padding: 7px 10px; }
+  .faixa-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 2px; }
+  .faixa-valor { font-size: 14px; font-weight: 500; color: var(--text); }
+  .faixa-valor.best { color: var(--green); font-weight: 600; }
+}
+
+/* DIMENSÕES */
+.dims { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.dim { font-size: 12px; color: var(--text-muted); background: var(--bg); padding: 3px 9px; border-radius: var(--radius-sm); }
+
+/* EMPTY */
+.empty { text-align: center; padding: 3rem 1rem; color: var(--text-muted); font-size: 14px; }
+.empty strong { display: block; font-size: 16px; color: var(--text); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo"><span>AM</span></div>
+    <h2>Consulta de Produtos</h2>
+    <p>Digite a senha para acessar</p>
+    <input type="password" id="senha-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')verificarSenha()" />
+    <button onclick="verificarSenha()">Entrar</button>
+    <div class="lock-error" id="lock-error">Senha incorreta. Tente novamente.</div>
+  </div>
+</div>
+<div class="page">
+  <header class="site-header">
+    <div class="logo-box"><span>AM</span></div>
+    <div class="header-text">
+      <h1>Consulta de Produtos</h1>
+      <p>Preços por volume · Variações · Personalização</p>
+    </div>
+  </header>
+
+  <div class="prazos">
+    <div class="prazos-title">⏱ Prazos de Postagem</div>
+    <div class="prazos-grid">
+      <div class="prazo-item"><div class="prazo-qtd">Até 10 unidades — Laser</div><div class="prazo-val destaque">Mesmo dia (AMOUH FLASH)</div></div>
+      <div class="prazo-item"><div class="prazo-qtd">Até 20 unidades — Laser</div><div class="prazo-val">2 dias úteis</div></div>
+      <div class="prazo-item"><div class="prazo-qtd">Até 30 unidades — Laser</div><div class="prazo-val">5 dias úteis</div></div>
+      <div class="prazo-item"><div class="prazo-qtd">Até 50 unidades — Laser</div><div class="prazo-val">7 dias úteis</div></div>
+      <div class="prazo-item"><div class="prazo-qtd">Até 100 unidades — Laser</div><div class="prazo-val">10 dias úteis</div></div>
+      <div class="prazo-item"><div class="prazo-qtd">DTF, UV ou Bordado</div><div class="prazo-val">7 dias úteis</div></div>
+    </div>
+    <div class="prazos-obs">⚠ Prazo conta a partir do pagamento e OS completa.</div>
+  </div>
+
+  <div class="pers-block">
+    <div class="pers-title">💲 Personalizações — Valor Unitário</div>
+    <table class="pers-table">
+      <thead><tr><th>Item</th><th>1 a 3</th><th>4 a 6</th><th>7 a 9</th><th>10 a 20</th><th>20+</th></tr></thead>
+      <tbody>
+        <tr><td>Logo Laser</td><td>R$19,90</td><td>R$14,90</td><td>R$9,90</td><td class="incluso">Incluso</td><td class="incluso">Incluso</td></tr>
+        <tr><td>Logo DTF 9x4cm</td><td>R$24,90</td><td>R$19,90</td><td>R$14,90</td><td>R$9,90</td><td>R$6,90</td></tr>
+        <tr><td>Nome Laser (não para DTF)</td><td>R$10,00</td><td>R$10,00</td><td>R$10,00</td><td>R$10,00</td><td>R$10,00</td></tr>
+        <tr><td>Caixas Corp. / Ecobag (taxa)</td><td>R$19,90</td><td>R$14,90</td><td>R$9,90</td><td class="zero">Zero</td><td class="zero">Zero</td></tr>
+        <tr><td>Fita personalizada</td><td>R$3,90</td><td>R$3,90</td><td>R$3,90</td><td>R$3,90</td><td>R$3,90</td></tr>
+        <tr><td>Adicional de iniciais</td><td colspan="5" style="font-size:11px">Até 29 un: inclusa no lugar do logo · Logo + iniciais: R$6,90 · 30+ un: R$6,90</td></tr>
+        <tr><td>Logo extra</td><td>—</td><td>—</td><td>R$6,90</td><td>R$6,90</td><td>R$6,90</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cart-btn-wrap">
+    <button class="cart-toggle-btn" onclick="toggleCart()">
+      🛒 Orçamento <span class="cart-count" id="cart-count">0</span>
+    </button>
+  </div>
+
+  <div class="cart-panel" id="cart-panel">
+    <div class="cart-panel-title">📋 Itens do Orçamento</div>
+    <div id="cart-items"><div class="cart-empty">Nenhum item adicionado ainda.</div></div>
+    <div class="cart-total" id="cart-total" style="display:none">
+      <span class="cart-total-label" style="font-size:12px;color:var(--text-muted)">Valor unitário do kit</span>
+      <span class="cart-total-val" id="cart-unit-val" style="font-size:13px;color:var(--text-muted)">R$ 0,00</span>
+    </div>
+    <div class="cart-total" id="cart-total-row" style="display:none;margin-top:4px">
+      <span class="cart-total-label">Total estimado</span>
+      <span class="cart-total-val" id="cart-total-val">R$ 0,00</span>
+    </div>
+    <div class="cart-actions">
+      <button class="cart-clear-btn" onclick="clearCart()">Limpar</button>
+      <button class="cart-pdf-btn" onclick="exportPDF()">⬇ Exportar PDF</button>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <input type="text" id="q" placeholder="Digite o nome ou código do produto..." autocomplete="off" />
+    <button class="clear-btn" id="clear" onclick="limpar()">✕</button>
+  </div>
+
+  <div class="sugs" id="sugs"></div>
+  <div class="count" id="count"></div>
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+const DADOS=[{"sku":"AMCAD003U","nome":"Café Drip Coffee Unitário | Amouh","variacoes":"Unitário","personalizacao":"Não","faixas":{"b2c":9.9,"10+":9.4,"20+":8.9,"30+":8.4,"50+":7.9,"70+":7.9,"100+":7.9}},{"sku":"AMNPP002","nome":"Necessaire Puffer Preta Personalizada | Amouh","variacoes":"Preta","personalizacao":"L-DTF","faixas":{"b2c":79.9,"10+":74.9,"20+":69.9,"30+":67.9,"50+":64.9,"70+":59.9,"100+":59.9}},{"sku":"EVVEL001U","nome":"Vela Aromatizada Bamboo | Évora","variacoes":"","personalizacao":"V-DTF","faixas":{"b2c":85.9,"10+":79.9,"20+":74.9,"30+":69.9,"50+":62.9,"70+":59.9,"100+":59.9},"peso":"0,42","largura":"8","altura":"8","profundidade":"8"},{"sku":"EVDIF002","nome":"Difusor de ambiente Bamboo P | Evora","variacoes":"","personalizacao":"V-DTF","faixas":{"b2c":89.9,"10+":79.9,"20+":74.9,"30+":72.9,"50+":70.9,"70+":69.9,"100+":69.9},"peso":"0,43","largura":"8","altura":"8,5","profundidade":"8"},{"sku":"EVHSP002U","nome":"Home Spray Bamboo | Evora","variacoes":"","personalizacao":"Não","faixas":{"b2c":79.9,"10+":75.91,"20+":74.31,"30+":71.91,"50+":67.92,"70+":59.9,"100+":59.9},"peso":"0,43","largura":"6,3","altura":"18,5","profundidade":"6,3"},{"sku":"EVSAB001U","nome":"Sabonete Liquido Bamboo Deluxe | Evora","variacoes":"","personalizacao":"V-DTF","faixas":{"b2c":79.9,"10+":75.91,"20+":74.31,"30+":71.91,"50+":69.9,"70+":64.9,"100+":64.9},"peso":"0,79","largura":"14,5","altura":"16,5","profundidade":"4,2"},{"sku":"CTVIC","nome":"Vinho Monte de Pinheiros Cartuxa Tinto ou Branco","variacoes":"Tinto e Branco","personalizacao":"Não","faixas":{"b2c":77.9,"10+":74.01,"20+":69.9,"30+":67.9,"50+":64.9,"70+":64.9,"100+":64.9},"peso":"1,3","largura":"7,5","altura":"31,5","profundidade":"7,5"},{"sku":"AM004VN","nome":"Vinho Tinto Viento Del Mar Pinot Noir","variacoes":"Tinto","personalizacao":"Não","faixas":{"b2c":69.9,"10+":66.41,"20+":65.01,"30+":64.9,"50+":62.9,"70+":61.9,"100+":61.9},"peso":"0,75","largura":"8,5","altura":"29","profundidade":"8,5"},{"sku":"VEATI000U","nome":"Vinho Tinto Cartuxa EA","variacoes":"Tinto","personalizacao":"Não","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":81.9,"50+":81.9,"70+":81.9,"100+":81.9},"peso":"1,3","largura":"7,5","altura":"31,5","profundidade":"7,5"},{"sku":"AMB001ESP","nome":"Espumante Intrigo Brut Argentino","variacoes":"Brut","personalizacao":"Não","faixas":{"b2c":79.9,"10+":75.91,"20+":74.31,"30+":71.91,"50+":69.0,"70+":69.0,"100+":69.0},"peso":"0,75","largura":"10","altura":"30","profundidade":"10"},{"sku":"CHMBR000U","nome":"Espumante Chandon Réserve Brut Mini","variacoes":"Brut","personalizacao":"Não","faixas":{"b2c":59.0,"10+":56.05,"20+":54.87,"30+":53.1,"50+":49.9,"70+":49.9,"100+":49.9},"peso":"0,47","largura":"5,5","altura":"18,5","profundidade":"5,5"},{"sku":"MPMBR000U","nome":"Espumante Monte Paschoal ProSecco Mini","variacoes":"","personalizacao":"Não","faixas":{"b2c":29.9,"10+":28.4,"20+":27.81,"30+":26.91,"50+":25.9,"70+":24.9,"100+":24.9},"peso":"0,47","largura":"5,5","altura":"18,5","profundidade":"5,5"},{"sku":"NUCH040U","nome":"Chocolate Nugali 40g","variacoes":"","personalizacao":"Não","faixas":{"b2c":19.9,"10+":18.9,"20+":18.51,"30+":17.91,"50+":16.9,"70+":16.9,"100+":16.9},"peso":"0,04","largura":"8,5","altura":"10","profundidade":"1,3"},{"sku":"NUCH100U","nome":"Chocolate Premium Nugali 45% Cacau – Barra 100g","variacoes":"","personalizacao":"Não","faixas":{"b2c":29.9,"10+":28.4,"20+":27.81,"30+":26.91,"50+":25.9,"70+":25.9,"100+":25.9},"peso":"0,1","largura":"8","altura":"20","profundidade":"1,5"},{"sku":"AMMLS","nome":"Mochila laptop executiva personalizada laser","variacoes":"Preta, Azul e Cinza","personalizacao":"L-DTF","faixas":{"b2c":129.9,"10+":119.0,"20+":114.9,"30+":99.0,"50+":94.9,"70+":89.9,"100+":84.9},"peso":"0,43","largura":"32","altura":"44","profundidade":"4"},
+{"sku":"AMMNE","nome":"Mochila esportiva laptop notebook","variacoes":"Preta","personalizacao":"L-DTF","faixas":{"b2c":134.9,"10+":124.9,"20+":119.9,"30+":104.9,"50+":99.9,"70+":94.9,"100+":89.9},"peso":"0,43","largura":"30","altura":"41","profundidade":"4"},{"sku":"AMMTE","nome":"Marmita térmica fitness inox personalizada laser","variacoes":"azul e rosa / azul, amarelo, branco, rosa","personalizacao":"L","faixas":{"b2c":119.9,"10+":113.91,"20+":109.9,"30+":105.9,"50+":99.9,"70+":98.92,"100+":94.9},"peso":"0,535","largura":"24","altura":"17","profundidade":"8"},{"sku":"AMMBP001","nome":"Marmita Bento Off White Personalizada","variacoes":"off white","personalizacao":"L","faixas":{"b2c":64.9,"10+":59.9,"20+":54.9,"30+":52.9,"50+":48.9,"70+":44.9,"100+":39.9},"peso":"0,2","largura":"20","altura":"8","profundidade":"11,5"},{"sku":"AMLTL","nome":"Lancheira marmita térmica rigida lunch box","variacoes":"Cinza, rosa, amarela, azul","personalizacao":"L","faixas":{"b2c":99.9,"10+":94.91,"20+":92.91,"30+":89.9,"50+":84.9,"70+":79.9,"100+":74.9},"peso":"0,49","largura":"14,5","altura":"19,3","profundidade":"14"},{"sku":"AMFIB","nome":"Fit Bag I - bolsa esportiva","variacoes":"Preta, vinho e azul","personalizacao":"DTF B","faixas":{"b2c":109.9,"10+":99.9,"20+":93.9,"30+":89.9,"50+":85.9,"70+":79.9,"100+":77.9},"peso":"0,35","largura":"33","altura":"22","profundidade":"8"},{"sku":"AMFBE","nome":"Fit Bag II - bolsa viagem","variacoes":"Preta","personalizacao":"DTF-B","faixas":{"b2c":119.9,"10+":114.9,"20+":109.9,"30+":104.9,"50+":99.9,"70+":89.9,"100+":79.9}},{"sku":"AMBMA002U","nome":"Fit Bag III - bolsa esportiva e viagem","variacoes":"Preta","personalizacao":"DTF-B","faixas":{"b2c":134.9,"10+":129.9,"20+":119.9,"30+":109.9,"50+":104.9,"70+":99.9,"100+":94.9},"peso":"0,39","largura":"28","altura":"27","profundidade":"8"},{"sku":"AMMOB","nome":"Mochila Bolsa esportiva","variacoes":"Rosa e Preta","personalizacao":"DTF-B","faixas":{"b2c":149.0,"10+":141.55,"20+":138.57,"30+":124.9,"50+":119.9,"70+":114.9,"100+":109.9},"peso":"0,485","largura":"36","altura":"23","profundidade":"8"},{"sku":"AMMTC002U","nome":"Mochila Térmica Cooler","variacoes":"Preta","personalizacao":"DTF-B","faixas":{"b2c":159.9,"10+":151.91,"20+":148.71,"30+":143.91,"50+":135.92,"70+":124.9,"100+":119.9},"peso":"0,45","largura":"35","altura":"24","profundidade":"8"},{"sku":"AMBPB","nome":"Bolsa de praia Summer Vibes","variacoes":"Off white e ROSA","personalizacao":"L-B","faixas":{"b2c":119.0,"10+":113.05,"20+":110.67,"30+":107.1,"50+":101.15,"70+":98.17,"100+":97.9},"peso":"0,49","largura":"18","altura":"23,5","profundidade":"3"},{"sku":"AMBLEZ","nome":"Bolsa Lancheira Térmica Executiva com Zipper","variacoes":"","personalizacao":"","faixas":{"b2c":69.9,"10+":66.41,"20+":64.9,"30+":62.9,"50+":59.9,"70+":54.9,"100+":57.9}},{"sku":"AMBTF","nome":"Bolsa térmica lancheira Fitness","variacoes":"azul, vermelha / preta e azul","personalizacao":"DTF textil","faixas":{"b2c":89.9,"10+":79.9,"20+":77.9,"30+":74.9,"50+":69.9,"70+":64.9,"100+":59.9},"peso":"0,28","largura":"25","altura":"32","profundidade":"10"},{"sku":"AMBDT004P","nome":"Bolsa Tote Dobrável Personalizada","variacoes":"Azul Marinho M","personalizacao":"L-DTF","faixas":{"b2c":109.9,"10+":104.41,"20+":102.21,"30+":98.91,"50+":93.42,"70+":90.67,"100+":87.9},"peso":"0.5","largura":"30","altura":"30","profundidade":"3"},{"sku":"AMBDT002G","nome":"Bolsa Tote Dobrável Personalizada","variacoes":"Preta G","personalizacao":"L-DTF","faixas":{"b2c":134.9,"10+":128.16,"20+":125.46,"30+":121.41,"50+":114.67,"70+":111.29,"100+":107.9},"peso":"0.5","largura":"30","altura":"30","profundidade":"3"},{"sku":"AM0001C","nome":"Caderno A5 Pautado Moleskine Executivo","variacoes":"A consultar","personalizacao":"L-DTF","faixas":{"b2c":54.9,"10+":49.9,"20+":47.9,"30+":44.9,"50+":38.9,"70+":36.9,"100+":34.9},"peso":"0,08","largura":"14","altura":"21","profundidade":"1,5"},{"sku":"AMAMP","nome":"Agenda Moleskine Pautado A5","variacoes":"preto azul","personalizacao":"L-DTF","faixas":{"b2c":47.9,"10+":44.9,"20+":39.9,"30+":34.9,"50+":27.9,"70+":26.9,"100+":24.9},"peso":"0,17","largura":"14,5","altura":"21","profundidade":"1,5"},{"sku":"AMSTN0001U","nome":"Sacola TNT (corporativo)","variacoes":"Preta, azul, Branca, verde e verm","personalizacao":"DTF","faixas":{"10+":2.9,"20+":2.9,"30+":2.9,"50+":2.9,"70+":2.9,"100+":2.9},"peso":"0,05","largura":"20","altura":"30","profundidade":"0,5"},{"sku":"AMDTFECB","nome":"Bolsa Ecobag Personalizada Temática","variacoes":"Cru - offwhite","personalizacao":"DTF","faixas":{"10+":23.9,"20+":19.9,"30+":18.9,"50+":18.5,"70+":18.5,"100+":18.5},"peso":"0,08","largura":"33","altura":"20","profundidade":"2"},{"sku":"AMSCC001U","nome":"Sacola Corporativa","variacoes":"Laranja (P) e Azul (G)","personalizacao":"Não","faixas":{"b2c":9.9,"10+":9.9,"20+":9.41,"30+":9.41,"50+":9.41,"70+":9.41,"100+":9.41},"peso":"0,11","largura":"40","altura":"29,4","profundidade":"1"},{"sku":"AMCAR","nome":"Caneca Artesanal Personalizada","variacoes":"branca e preta","personalizacao":"L-DTF","faixas":{"b2c":69.9,"10+":66.41,"20+":64.9,"30+":59.9,"50+":57.9,"70+":54.9,"100+":52.9},"peso":"0,2","largura":"10","altura":"10","profundidade":"10"},{"sku":"AMCDC","nome":"Caneca térmica de café personalizada","variacoes":"Off white e preta","personalizacao":"L-DTF","faixas":{"b2c":59.9,"10+":54.9,"20+":49.9,"30+":47.9,"50+":44.9,"70+":39.9,"100+":34.9},"peso":"0,15","largura":"11","altura":"9","profundidade":"12"},{"sku":"AMCLU","nome":"Caneca Com Aquecimento Lucky","variacoes":"Verde, Branca e Rosa","personalizacao":"L-V-DTF","faixas":{"b2c":139.9,"10+":133.91,"20+":129.9,"30+":119.9,"50+":109.9,"70+":104.9,"100+":99.9},"peso":"0,4","largura":"14","altura":"16","profundidade":"12"},{"sku":"AMCAP","nome":"Caneca Pérola personalizada","variacoes":"lilas e azul","personalizacao":"L-V-DTF","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":80.91,"50+":76.42,"70+":74.17,"100+":74.17},"peso":"0,45","largura":"14,5","altura":"12,7","profundidade":"9,5"},{"sku":"AMCMA","nome":"Caneca Marmor personalizada","variacoes":"Branca, preta e Rosa","personalizacao":"L-V-DTF","faixas":{"b2c":84.9,"10+":80.66,"20+":78.96,"30+":76.41,"50+":72.17,"70+":69.9,"100+":69.9},"peso":"0,395","largura":"11,3","altura":"12,7","profundidade":"9,7"},{"sku":"AMCUT","nome":"Copo Cuia Térmico Personalizado","variacoes":"Branco e Preto","personalizacao":"L-DTF","faixas":{"b2c":49.9,"10+":47.41,"20+":46.41,"30+":39.9,"50+":37.9,"70+":34.9,"100+":33.9},"peso":"0,16","largura":"9,5","altura":"12,3","profundidade":"9,3"},{"sku":"AMCTC","nome":"Copo térmico personalizado a laser café todo dia","variacoes":"Preta, Branca e Verde","personalizacao":"L-DTF","faixas":{"b2c":79.9,"10+":74.91,"20+":72.9,"30+":69.9,"50+":64.9,"70+":62.9,"100+":59.9},"peso":"0,4","largura":"9","altura":"9","profundidade":"15"},{"sku":"AMCTS","nome":"Copo Térmico Shaker Personalizado","variacoes":"Preto, azul e verde","personalizacao":"L-DTF","faixas":{"b2c":129.9,"10+":123.41,"20+":120.81,"30+":116.91,"50+":110.42,"70+":107.17,"100+":104.9},"peso":"0,53","largura":"11,5","altura":"27,5","profundidade":"11,5"},{"sku":"AMTPR","nome":"Taça térmica Prisma Personalizada","variacoes":"Preta, prata, Verde, Rosa e Branco","personalizacao":"L","faixas":{"b2c":86.9,"10+":82.56,"20+":79.9,"30+":78.21,"50+":73.87,"70+":71.69,"100+":68.9},"peso":"0,21","largura":"11,5","altura":"14","profundidade":"11,5"},{"sku":"AMMUT","nome":"Multi termo copo térmico personalizado","variacoes":"azul, branco, preto","personalizacao":"L-DTF","faixas":{"b2c":69.9,"10+":66.41,"20+":59.9,"30+":49.9,"50+":47.9,"70+":45.9,"100+":44.9},"peso":"0,24","largura":"9,3","altura":"17","profundidade":"9,3"},{"sku":"AMSCT","nome":"Super copo térmico 1L","variacoes":"preto e Branco","personalizacao":"L-DTF","faixas":{"b2c":124.9,"10+":118.66,"20+":116.16,"30+":112.41,"50+":106.17,"70+":103.04,"100+":103.04},"peso":"0,58","largura":"15,5","altura":"28,2","profundidade":"11"},{"sku":"AMCTE","nome":"Copo térmico café especial","variacoes":"azul, vermelho, prata","personalizacao":"L-DTF","faixas":{"b2c":89.9,"10+":85.41,"20+":82.9,"30+":79.9,"50+":76.42,"70+":69.9,"100+":69.9},"peso":"0,28","largura":"8,6","altura":"18,5","profundidade":"8,7"},{"sku":"AMCOA003U","nome":"Copão personalizado diamantado cravejado","variacoes":"Rosa","personalizacao":"L-DTF","faixas":{"b2c":59.9,"10+":56.91,"20+":55.71,"30+":49.9,"50+":47.9,"70+":44.9,"100+":44.9},"peso":"0,3","largura":"10,5","altura":"21,4","profundidade":"10,6"},{"sku":"AMXPD000U","nome":"Xícara parede dupla personalizada 80ml (sem pires)","variacoes":"Vidro duplo","personalizacao":"L","faixas":{"b2c":44.9,"10+":42.66,"20+":41.76,"30+":40.41,"50+":39.9,"70+":39.9,"100+":39.9},"peso":"0.1","largura":"6,5","altura":"6,5","profundidade":"4"},{"sku":"AMCCPD","nome":"Copo café parede dupla","variacoes":"","personalizacao":"L","faixas":{"b2c":34.9,"10+":33.16,"20+":32.46,"30+":29.9,"50+":27.9,"70+":24.9,"100+":24.9},"peso":"0,114","largura":"8","altura":"8","profundidade":"7"},{"sku":"AMPFP","nome":"Pantufa pelos","variacoes":"36/37, 38/39 e 40/41","personalizacao":"Laser","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":80.91,"50+":76.42,"70+":74.17,"100+":74.17},"peso":"0,25","largura":"23","altura":"27","profundidade":"4"},{"sku":"AMLAP","nome":"Lady Nossa Senhora Aparecida Santa","variacoes":"Branca Dourada, Branca Terço","personalizacao":"Não","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":74.9,"50+":69.9,"70+":67.9,"100+":64.9},"peso":"0,465","largura":"15","altura":"22","profundidade":"8"},{"sku":"AMTPT","nome":"Toalha canga de praia turca","variacoes":"Branca Azul","personalizacao":"DTF-B","faixas":{"b2c":129.9,"10+":123.41,"20+":114.9,"30+":109.0,"50+":99.0,"70+":99.0,"100+":99.0},"peso":"0,42","largura":"33","altura":"26","profundidade":"4"},{"sku":"AMCCA","nome":"Capa chaveiro case Airtag","variacoes":"Vinho e Preto","personalizacao":"L","faixas":{"b2c":39.9,"10+":37.91,"20+":37.11,"30+":35.91,"50+":33.91,"70+":32.92,"100+":32.92},"peso":"0,05","largura":"4,5","altura":"6","profundidade":"1,5"},{"sku":"AMRDX","nome":"Roupão deluxe Branco","variacoes":"Branco — M, G e GG","personalizacao":"B","faixas":{"b2c":239.9,"10+":224.9,"20+":219.9,"30+":199.9,"50+":189.0,"70+":179.0,"100+":169.9},"peso":"0,95","largura":"29","altura":"40","profundidade":"12"},
+{"sku":"AMRDA","nome":"Roupão deluxe Azul Marinho","variacoes":"Azul Marinho — M, G e GG","personalizacao":"B","faixas":{"b2c":239.9,"10+":224.9,"20+":219.9,"30+":199.9,"50+":189.0,"70+":179.0,"100+":169.9},"peso":"0,95","largura":"29","altura":"40","profundidade":"12"},{"sku":"AMPWRB","nome":"Powerbank Personalizado (sem cabo)","variacoes":"Branco","personalizacao":"L-DTF","faixas":{"b2c":75.9,"10+":72.11,"20+":70.59,"30+":68.31,"50+":68.31,"70+":68.31,"100+":67.9},"peso":"0.4","largura":"10","altura":"3","profundidade":"5"},{"sku":"AMPWRBCC001","nome":"Powerbank Personalizado (com cabo branco)","variacoes":"Com cabo branco","personalizacao":"L-DTF","faixas":{"b2c":69.9,"10+":66.41,"20+":65.01,"30+":62.91,"50+":62.91,"70+":62.91,"100+":62.91},"peso":"0.4","largura":"10","altura":"3","profundidade":"5"},{"sku":"AMPWRBCC002","nome":"Powerbank Personalizado (com cabo preto)","variacoes":"Com cabo preto","personalizacao":"L-DTF","faixas":{"b2c":69.9,"10+":66.41,"20+":65.01,"30+":62.91,"50+":62.91,"70+":62.91,"100+":62.91},"peso":"0.4","largura":"10","altura":"3","profundidade":"5"},{"sku":"AMTEA","nome":"Garrafa térmica termo amouh 500ml","variacoes":"azul, preta, branca, dourada, vermelha","personalizacao":"L-DTF","faixas":{"b2c":77.9,"10+":74.01,"20+":69.9,"30+":59.9,"50+":57.9,"70+":53.9,"100+":53.9},"peso":"0,28","largura":"23","altura":"6","profundidade":"6"},{"sku":"AMTAC002U","nome":"Garrafa Termo AMOUH corporativa 500ml (sem termômetro)","variacoes":"Preta SEM termômetro","personalizacao":"L-DTF","faixas":{"b2c":77.9,"10+":74.01,"20+":69.9,"30+":59.9,"50+":57.9,"70+":53.9,"100+":49.9},"peso":"0,3","largura":"7,2","altura":"23,7","profundidade":"7"},{"sku":"AMGTS","nome":"Garrafa térmica Sport 550ml","variacoes":"Preta, azul e branca","personalizacao":"L-DTF","faixas":{"b2c":64.9,"10+":61.66,"20+":60.36,"30+":58.41,"50+":55.17,"70+":53.54,"100+":53.54},"peso":"0,28","largura":"8,1","altura":"25,3","profundidade":"7,9"},{"sku":"AMGTSN","nome":"Garrafa térmica sport 600ml","variacoes":"Preta, azul e branca","personalizacao":"L-DTF","faixas":{"b2c":74.9,"10+":71.16,"20+":69.66,"30+":67.41,"50+":63.67,"70+":61.79,"100+":61.79},"peso":"0,3","largura":"7,5","altura":"28","profundidade":"7,5"},{"sku":"AMSUB002U","nome":"Super Bottle - garrafa térmica 1 litro aço inox","variacoes":"azul, branca, preta, rosa, verde","personalizacao":"L-DTF","faixas":{"b2c":88.9,"10+":84.46,"20+":82.68,"30+":74.9,"50+":69.9,"70+":67.9,"100+":64.9},"peso":"0,46","largura":"9,3","altura":"30","profundidade":"9,1"},{"sku":"AMGSBB","nome":"Garrafa térmica Super Bottle com borracha","variacoes":"Azul marinho e preto","personalizacao":"L-DTF","faixas":{"b2c":94.9,"10+":89.9,"20+":87.9,"30+":84.9,"50+":79.9,"70+":74.9,"100+":69.9},"peso":"0,3","largura":"8","altura":"22","profundidade":"8"},{"sku":"AMGTD","nome":"Garrafa térmica Deluxe personalizada laser","variacoes":"verde, vermelho, cinza, azul","personalizacao":"L-DTF","faixas":{"b2c":129.9,"10+":123.41,"20+":120.81,"30+":104.9,"50+":99.0,"70+":94.9,"100+":94.9},"peso":"0,47","largura":"9,5","altura":"28,9","profundidade":"9,3"},{"sku":"AMGTE","nome":"Garrafa térmica esportiva 700ml","variacoes":"Verde, offwhite e azul","personalizacao":"L-DTF","faixas":{"b2c":99.9,"10+":94.91,"20+":89.9,"30+":84.9,"50+":79.9,"70+":77.9,"100+":72.9},"peso":"0,4","largura":"8,8","altura":"29,1","profundidade":"8,8"},{"sku":"AMGCX002U","nome":"Garrafa térmica com xícaras","variacoes":"Preta","personalizacao":"L-DTF","faixas":{"b2c":74.9,"10+":71.16,"20+":67.9,"30+":57.9,"50+":49.9,"70+":47.9,"100+":46.9},"peso":"0,48","largura":"17","altura":"26","profundidade":"7,3"},{"sku":"AMGSQ","nome":"Garrafa Squeeze Prime personalizada","variacoes":"Azul e Branca","personalizacao":"L-DTF","faixas":{"b2c":59.9,"10+":56.91,"20+":54.9,"30+":53.91,"50+":49.9,"70+":47.9,"100+":44.9},"peso":"0,08","largura":"6,5","altura":"24,5","profundidade":"6,5"},{"sku":"AMGSC002","nome":"Garrafa Squeeze Preta com Chaveiro 500ml","variacoes":"preto","personalizacao":"L-DTF","faixas":{"b2c":54.9,"10+":49.9,"20+":44.9,"30+":42.9,"50+":39.9,"70+":34.9,"100+":29.9},"peso":"0,15","largura":"7","altura":"21","profundidade":"7"},{"sku":"AMMTC","nome":"Copo Térmico Multitermo COPA","variacoes":"Rosa e verde","personalizacao":"L-DTF","faixas":{"b2c":79.9,"10+":75.91,"20+":72.9,"30+":69.0,"50+":67.0,"70+":64.9,"100+":64.9},"peso":"0,24","largura":"9,5","altura":"17","profundidade":"9,5"},{"sku":"AMCTK","nome":"Copo térmico infantil astronauta personalizado laser","variacoes":"lilas, azul","personalizacao":"L-DTF","faixas":{"b2c":89.9,"10+":84.55,"20+":82.77,"30+":80.1,"50+":75.65,"70+":73.42,"100+":73.42},"peso":"0,39","largura":"9,8","altura":"19,7","profundidade":"9,8"},{"sku":"AMLIM","nome":"Luminária infantil de mesa","variacoes":"rosa e lilas","personalizacao":"L","faixas":{"b2c":77.9,"10+":74.01,"20+":72.45,"30+":70.11,"50+":66.22,"70+":64.27,"100+":59.9},"peso":"0,25","largura":"14","altura":"14","profundidade":"9"},{"sku":"AMLLB","nome":"Lancheira infantil divertida Lunch bag","variacoes":"Roxa, rosa e Azul","personalizacao":"DTF","faixas":{"b2c":114.9,"10+":109.16,"20+":106.86,"30+":103.41,"50+":97.67,"70+":94.79,"100+":89.9},"peso":"0,25","largura":"25","altura":"23","profundidade":"3"},{"sku":"AMESI013U","nome":"Estojo Infantil","variacoes":"Verde","personalizacao":"L","faixas":{"b2c":27.9,"10+":26.5,"20+":25.95,"30+":25.11,"50+":23.71,"70+":23.02,"100+":19.9},"peso":"0,1","largura":"19","altura":"8","profundidade":"5"},{"sku":"AMUFV001U","nome":"Urso para pintar Fluid Bear","variacoes":"colorido","personalizacao":"Não","faixas":{"b2c":89.9,"10+":84.55,"20+":82.77,"30+":80.1,"50+":75.65,"70+":73.42,"100+":71.9},"peso":"0,46","largura":"14","altura":"23,7","profundidade":"9,5"},{"sku":"AMMIB","nome":"Necessaire de maquiagem Miss Bag M personalizada laser","variacoes":"Preta e Rosa","personalizacao":"L-DTF","faixas":{"b2c":64.9,"10+":61.66,"20+":60.36,"30+":58.41,"50+":49.9,"70+":47.9,"100+":44.9},"peso":"0,15","largura":"22","altura":"18,5","profundidade":"3"},{"sku":"AMMBIIG","nome":"Necessaire de viagem Miss Bag II G","variacoes":"Preta e Rosa","personalizacao":"L-DTF","faixas":{"b2c":59.9,"10+":56.91,"20+":49.9,"30+":47.9,"50+":44.9,"70+":42.9,"100+":39.9},"peso":"0,12","largura":"26,5","altura":"16","profundidade":"2"},{"sku":"AMMBIIP","nome":"Necessaire de viagem Miss Bag II M","variacoes":"Preta e Rosa","personalizacao":"L-DTF","faixas":{"b2c":49.9,"10+":47.41,"20+":44.9,"30+":42.9,"50+":39.9,"70+":37.9,"100+":34.9},"peso":"0,1","largura":"23","altura":"15","profundidade":"2"},{"sku":"AMPBE","nome":"Porta batom compacto com espelho","variacoes":"Preto, caramelo e rosa","personalizacao":"L-DTF","faixas":{"b2c":44.9,"10+":42.66,"20+":41.76,"30+":40.41,"50+":38.16,"70+":37.04,"100+":37.04},"peso":"0,05","largura":"8","altura":"12","profundidade":"3"},{"sku":"AMKNV","nome":"Kit necessaire viagem completa 7 peças","variacoes":"rosa, azul marinho","personalizacao":"DTF","faixas":{"b2c":99.9,"10+":94.91,"20+":92.91,"30+":89.91,"50+":84.92,"70+":82.42,"100+":82.42},"peso":"0,36","largura":"40","altura":"31","profundidade":"3"},{"sku":"AMNLG003U","nome":"Necessaire Bolsa de Viagem listras com Gancho","variacoes":"rosa","personalizacao":"DTF","faixas":{"b2c":64.9,"10+":61.66,"20+":60.36,"30+":58.41,"50+":55.17,"70+":53.54,"100+":53.54},"peso":"0,2","largura":"24","altura":"2","profundidade":"21"},{"sku":"AMNEL003U","nome":"Necessaire Bolsa De Viagem Porta Sutiã e Calcinha","variacoes":"rosa","personalizacao":"DTF","faixas":{"b2c":64.9,"10+":61.66,"20+":60.36,"30+":58.41,"50+":55.17,"70+":53.54,"100+":53.54},"peso":"0,2","largura":"28","altura":"2","profundidade":"17"},{"sku":"AMNEB002U","nome":"Necessaire de viagem Masculina Black Bag","variacoes":"Preta com Marrom / Preta","personalizacao":"L-DTF","faixas":{"b2c":74.9,"10+":71.16,"20+":69.66,"30+":59.9,"50+":57.9,"70+":55.9,"100+":55.9},"peso":"0,3","largura":"27","altura":"2,5","profundidade":"2,5"},{"sku":"AMBTG","nome":"Porta-joias compacto Box to go P personalizado","variacoes":"Branca, Preta e Rosa","personalizacao":"L-DTF","faixas":{"b2c":49.9,"10+":47.41,"20+":46.41,"30+":42.9,"50+":39.9,"70+":39.9,"100+":39.9},"peso":"0,18","largura":"10","altura":"10","profundidade":"5"},{"sku":"AMPJD","nome":"Porta joias portátil Deluxe","variacoes":"Marrom e Preto","personalizacao":"L-DTF","faixas":{"b2c":84.9,"10+":80.66,"20+":76.41,"30+":72.17,"50+":69.9,"70+":67.92,"100+":59.9},"peso":"0,18","largura":"10","altura":"10,5","profundidade":"5,5"},{"sku":"AMDTFBTGp","nome":"Box To Go G - Porta jóias Compacto","variacoes":"Rosa e Preta","personalizacao":"L-DTF","faixas":{"b2c":86.9,"10+":82.56,"20+":80.82,"30+":78.21,"50+":73.87,"70+":69.0,"100+":69.0},"peso":"0,31","largura":"16","altura":"11","profundidade":"5,5"},{"sku":"AMKITU","nome":"Kit de Unhas Personalizado","variacoes":"Azul e Verde","personalizacao":"L-DTF","faixas":{"b2c":44.9,"10+":42.66,"20+":39.9,"30+":37.9,"50+":35.9,"70+":34.9,"100+":32.9},"peso":"0,07","largura":"14","altura":"11,5","profundidade":"2"},{"sku":"AMESA","nome":"Estojo de óculos viagem","variacoes":"Preto e Caramelo","personalizacao":"L-DTF","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":77.9,"50+":73.9,"70+":69.9,"100+":67.9},"peso":"0,195","largura":"16,2","altura":"12,5","profundidade":"6,5"},{"sku":"AMCLB002U","nome":"Clock Box estojo para relógios","variacoes":"Preto","personalizacao":"L","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":79.9,"50+":76.42,"70+":69.9,"100+":67.9},"peso":"0,4","largura":"16","altura":"11","profundidade":"8"},{"sku":"AMCLC","nome":"Clock Case - Estojo para relógios personalizado laser","variacoes":"Caramelo","personalizacao":"L-DTF","faixas":{"b2c":119.9,"10+":109.16,"20+":105.9,"30+":99.9,"50+":97.67,"70+":94.79,"100+":89.9},"peso":"0,4","largura":"9","altura":"9","profundidade":"19"},{"sku":"AMTRC","nome":"Travel Case - porta passaporte personalizado laser","variacoes":"Azul marinho, azul claro, rosa","personalizacao":"L","faixas":{"b2c":74.9,"10+":71.16,"20+":69.66,"30+":67.41,"50+":63.67,"70+":61.79,"100+":61.79},"peso":"0,1","largura":"11","altura":"15,2","profundidade":"2"},{"sku":"AMTCT003U","nome":"Travel Case com TAG de mala personalizado laser","variacoes":"Com tag — Rosa, Azul marinho, Azul claro","personalizacao":"L","faixas":{"b2c":99.9,"10+":94.91,"20+":92.91,"30+":89.91,"50+":84.92,"70+":82.42,"100+":82.42},"peso":"0.2","largura":"10","altura":"10","profundidade":"3"},{"sku":"AMTGM","nome":"Tag de mala Amouh","variacoes":"Azul marinho, azul claro, rosa","personalizacao":"L","faixas":{"b2c":34.9,"10+":33.16,"20+":32.46,"30+":31.41,"50+":29.66,"70+":28.79,"100+":28.79},"peso":"0,08","largura":"7","altura":"12","profundidade":"1"},{"sku":"AMPDV004U","nome":"Voucher Porta documentos viagem Azul","variacoes":"Azul marinho","personalizacao":"L","faixas":{"b2c":73.9,"10+":70.21,"20+":68.73,"30+":66.51,"50+":62.82,"70+":60.97,"100+":60.97},"peso":"0,3","largura":"25","altura":"16","profundidade":"1"},{"sku":"AMBGM009U","nome":"Balança gancho mala","variacoes":"prata","personalizacao":"L","faixas":{"b2c":69.9,"10+":66.41,"20+":65.01,"30+":62.91,"50+":59.42,"70+":57.67,"100+":57.67},"peso":"0,1","largura":"9","altura":"17,5","profundidade":"4,5"},{"sku":"AMPRM","nome":"Porta retrato Marmor com foto 10 x 15cm","variacoes":"Cinza","personalizacao":"FOTO","faixas":{"b2c":39.9,"10+":37.91,"20+":37.11,"30+":35.91,"50+":33.91,"70+":32.92,"100+":32.92},"peso":"0,18","largura":"12","altura":"17","profundidade":"2"},{"sku":"AMPRG020U","nome":"Porta retrato Rose Gold com foto 10 x 15cm","variacoes":"Rose","personalizacao":"FOTO","faixas":{"b2c":49.9,"10+":46.55,"20+":45.57,"30+":44.1,"50+":41.65,"70+":40.42,"100+":40.42},"peso":"0,24","largura":"16,5","altura":"20","profundidade":"3,5"},{"sku":"AMFPO000P","nome":"Foto Polaroide fujifilm","variacoes":"","personalizacao":"FOTO","faixas":{"b2c":12.9,"10+":12.26,"20+":12.0,"30+":11.61,"50+":10.96,"70+":10.64,"100+":10.64},"peso":"0,5","largura":"10","altura":"10","profundidade":"7"},{"sku":"AMTVV000G","nome":"Taça Vinho personalizada vidro Deluxe G","variacoes":"Vidro","personalizacao":"L","faixas":{"b2c":48.9,"10+":46.45,"20+":45.48,"30+":44.01,"50+":41.56,"70+":40.34,"100+":40.34},"peso":"0,25","largura":"10","altura":"26","profundidade":"10"},{"sku":"AMTRY000G","nome":"Taça de vinho Cristal personalizada Royale G","variacoes":"Cristal","personalizacao":"L","faixas":{"b2c":59.9,"10+":56.91,"20+":55.71,"30+":53.91,"50+":50.91,"70+":49.42,"100+":49.42},"peso":"0,2","largura":"9","altura":"26,5","profundidade":"9"},{"sku":"AMTRY000MC","nome":"Taça de vinho Royale M (Cristal)","variacoes":"Cristal","personalizacao":"L","faixas":{"b2c":44.9,"10+":42.66,"20+":39.9,"30+":38.9,"50+":38.17,"70+":37.04,"100+":36.9},"peso":"0,2","largura":"8","altura":"21","profundidade":"8"},{"sku":"AMTRY000NV","nome":"Taça de vinho Royale M (Vidro - Namorados)","variacoes":"Vidro Namorados","personalizacao":"L","faixas":{"b2c":38.9,"10+":36.96,"20+":36.18,"30+":35.01,"50+":33.07,"70+":32.9,"100+":32.9},"peso":"0,2","largura":"8","altura":"21","profundidade":"8"},{"sku":"AMTCV000U","nome":"Taça espumante personalizada Vidro Celebrate","variacoes":"Vidro","personalizacao":"L","faixas":{"b2c":33.9,"10+":32.2,"20+":31.53,"30+":30.51,"50+":28.81,"70+":27.97,"100+":27.97},"peso":"0,21","largura":"7","altura":"23","profundidade":"7"},{"sku":"AMTCC000U","nome":"Taça espumante personalizada Cristal Celebrate","variacoes":"Cristal","personalizacao":"L","faixas":{"b2c":42.9,"10+":40.5,"20+":39.9,"30+":37.91,"50+":34.91,"70+":33.92,"100+":32.92},"peso":"0,175","largura":"6,5","altura":"22,5","profundidade":"6,5"},{"sku":"AMTCP","nome":"Taça com Haste para Praia, areia e grama","variacoes":"Acrílico — Espumante e Gin","personalizacao":"L","faixas":{"b2c":39.9,"10+":37.91,"20+":37.11,"30+":35.91,"50+":35.91,"70+":35.91,"100+":35.91},"peso":"0,12","largura":"7,5","altura":"43","profundidade":"7,5"},{"sku":"AMTCC000","nome":"Taça de Cerveja Personalizada Cristal","variacoes":"Cristal","personalizacao":"L","faixas":{"b2c":42.9,"10+":39.9,"20+":38.9,"30+":36.9,"50+":35.91,"70+":35.91,"100+":35.91},"peso":"0,16","largura":"6,5","altura":"19,5","profundidade":"7"},{"sku":"AMTGC000","nome":"Taça de Gin Personalizada Cristal","variacoes":"Cristal","personalizacao":"L","faixas":{"b2c":49.9,"10+":47.41,"20+":46.41,"30+":44.91,"50+":44.91,"70+":44.91,"100+":44.91},"peso":"0,22","largura":"10,5","altura":"21","profundidade":"22"},{"sku":"AMCWC000","nome":"Copo de Whisky Personalizado Cristal","variacoes":"Cristal","personalizacao":"L","faixas":{"b2c":47.9,"10+":45.5,"20+":44.55,"30+":43.11,"50+":43.11,"70+":43.11,"100+":43.11},"peso":"0,33","largura":"9,5","altura":"8,8","profundidade":"9,5"},{"sku":"AMKCC000U","nome":"Kit para churrasco personalizado a laser","variacoes":"DTF NA CAPA","personalizacao":"L","faixas":{"b2c":99.9,"10+":94.91,"20+":92.91,"30+":89.91,"50+":84.92,"70+":82.42,"100+":82.42},"peso":"0,38","largura":"9","altura":"38","profundidade":"4"},{"sku":"AMWBG","nome":"Wine Bag Croco - case para vinho personalizado a laser","variacoes":"Marrom, Dourado e Preto","personalizacao":"L-DTF","faixas":{"b2c":79.9,"10+":75.91,"20+":74.31,"30+":71.91,"50+":67.92,"70+":65.92,"100+":65.92},"peso":"0,4","largura":"9","altura":"40","profundidade":"1"},{"sku":"AMBVP","nome":"Bolsa para vinho personalizada","variacoes":"Caramelo e verde","personalizacao":"L-DTF","faixas":{"b2c":59.9,"10+":56.91,"20+":53.9,"30+":49.9,"50+":45.9,"70+":42.9,"100+":39.9},"peso":"0,12","largura":"14,5","altura":"38","profundidade":"0,01"},{"sku":"AMKQB000P","nome":"Tábua de queijos bambu com utensílios servir 22CM","variacoes":"Bambu","personalizacao":"L","faixas":{"b2c":139.9,"10+":128.16,"20+":125.46,"30+":121.41,"50+":114.67,"70+":111.29,"100+":111.29},"peso":"1,2","largura":"22","altura":"3","profundidade":"22"},{"sku":"AMKUB000U","nome":"Kit acessorios de vinho Bambu","variacoes":"Bambu","personalizacao":"L","faixas":{"b2c":99.9,"10+":94.91,"20+":89.9,"30+":87.9,"50+":84.92,"70+":79.9,"100+":74.9},"peso":"0,38","largura":"12,5","altura":"17,5","profundidade":"6"},{"sku":"AMACV004U","nome":"Jogo de acessórios para Vinho case couro sintético","variacoes":"preto","personalizacao":"L-DTF","faixas":{"b2c":99.9,"10+":94.05,"20+":92.07,"30+":89.1,"50+":79.9,"70+":74.9,"100+":74.9},"peso":"0,4","largura":"15","altura":"15","profundidade":"4"},{"sku":"AMABSCV008U","nome":"Abridor de vinho inox madeira personalizado laser","variacoes":"Sem capa — Marrom","personalizacao":"L","faixas":{"b2c":69.9,"10+":67.91,"20+":64.9,"30+":59.9,"50+":54.9,"70+":52.9,"100+":49.9},"peso":"0,2","largura":"5","altura":"14","profundidade":"2"},{"sku":"AMABV008U-2","nome":"Abridor de vinho inox madeira personalizado laser","variacoes":"Com capa — Marrom","personalizacao":"L","faixas":{"b2c":89.9,"10+":84.91,"20+":79.9,"30+":74.9,"50+":69.9,"70+":67.9,"100+":64.9},"peso":"0,2","largura":"5","altura":"14","profundidade":"2"},{"sku":"AMMVW","nome":"Maleta porta vinho Deluxe personalizada a Laser","variacoes":"Prata e cobre","personalizacao":"L-DTF","faixas":{"b2c":134.9,"10+":119.9,"20+":114.9,"30+":109.9,"50+":99.9,"70+":94.9,"100+":89.9},"peso":"0,75","largura":"11,5","altura":"36,3","profundidade":"12,1"},{"sku":"AMTOP008","nome":"Tábua Orgânica Personalizada","variacoes":"Bambu","personalizacao":"L","faixas":{"b2c":79.9,"10+":75.91,"20+":74.31,"30+":69.9,"50+":67.92,"70+":64.9,"100+":62.9},"peso":"0,56","largura":"19","altura":"37,5","profundidade":"1,7"},{"sku":"AMTBM016","nome":"Tábua Marmor Personalizada","variacoes":"Madeira e pedra","personalizacao":"L","faixas":{"b2c":139.9,"10+":132.91,"20+":129.9,"30+":125.91,"50+":118.92,"70+":114.9,"100+":109.9},"peso":"1,2","largura":"23,5","altura":"33,5","profundidade":"2"},{"sku":"AMKTQT000U","nome":"Conjunto jogo para cortar queijos todo dia personalizado laser","variacoes":"","personalizacao":"L","faixas":{"b2c":69.9,"10+":66.41,"20+":65.01,"30+":59.9,"50+":54.9,"70+":49.9,"100+":49.9},"peso":"0,5","largura":"20","altura":"5","profundidade":"15"},{"sku":"AMAVC","nome":"Avental cook","variacoes":"Cinza","personalizacao":"DTF","faixas":{"b2c":64.9,"10+":59.9,"20+":57.9,"30+":55.9,"50+":54.9,"70+":49.9,"100+":47.9},"peso":"0,18","largura":"20","altura":"26","profundidade":"1"},{"sku":"AMAVC002CP","nome":"Avental cook COPA","variacoes":"COPA","personalizacao":"DTF","faixas":{"b2c":69.9,"10+":64.9,"20+":62.9,"30+":60.9,"50+":59.9,"70+":54.9,"100+":52.9},"peso":"0,18","largura":"20","altura":"26","profundidade":"1"},{"sku":"AMMBU","nome":"Dupla Mini Buda estátua","variacoes":"Cinza e Branco","personalizacao":"Não","faixas":{"b2c":49.0,"10+":46.55,"20+":45.57,"30+":44.1,"50+":41.65,"70+":40.42,"100+":40.42},"peso":"0,2","largura":"6","altura":"9,5","profundidade":"6"},{"sku":"AMMAB002U","nome":"Mão de Buda","variacoes":"preto","personalizacao":"Não","faixas":{"b2c":89.0,"10+":84.55,"20+":82.77,"30+":80.1,"50+":75.65,"70+":73.42,"100+":73.42},"peso":"0,3","largura":"20","altura":"12","profundidade":"8"},{"sku":"AMCNT","nome":"Caneta personalizada laser","variacoes":"","personalizacao":"L","faixas":{"b2c":7.9,"10+":7.9,"20+":7.9,"30+":7.9,"50+":7.9,"70+":6.9,"100+":6.9},"peso":"0,05","largura":"15","altura":"1,3","profundidade":"1,3"},{"sku":"AMCPRI","nome":"Caixa Rígida MIDI com imã","variacoes":"Preta e Branca","personalizacao":"DTF","faixas":{"b2c":39.9,"b2c+DTF":46.8,"20+":37.91,"20++DTF":44.81},"peso":"0,185","largura":"16,5","altura":"16,5","profundidade":"16,5"},{"sku":"AMCXS","nome":"Caixa Sacola","variacoes":"Preta e Verde","personalizacao":"DTF","faixas":{"b2c":39.9,"b2c+DTF":46.8,"20+":37.91,"20++DTF":44.81},"peso":"0,36","largura":"31,1","altura":"70","profundidade":"0,3"},{"sku":"AMCRI002M","nome":"Caixa Rígida C/ Imã Dobravel M","variacoes":"Preta, Branca e Azul — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":44.9,"b2c+DTF":51.8,"20+":42.66,"20++DTF":49.56},"peso":"0,395","largura":"24","altura":"10,5","profundidade":"17,5"},{"sku":"AMCRI002G","nome":"Caixa Rígida C/ Imã Dobravel G","variacoes":"Preta — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":54.9,"b2c+DTF":61.8,"20+":52.16,"20++DTF":59.06},"peso":"0,58","largura":"33","altura":"25","profundidade":"12"},{"sku":"AMSTNT002","nome":"Sacola TNT com botão","variacoes":"Preta, Vermelha, Azul","personalizacao":"DTF","faixas":{"b2c":2.9,"b2c+DTF":9.8,"20+":2.76,"20++DTF":9.66},"peso":"0,015","largura":"33","altura":"34","profundidade":"0,05"},{"sku":"AMSBR002","nome":"Sacola Brilho Lisa","variacoes":"Preta","personalizacao":"DTF","faixas":{"b2c":5.9,"b2c+DTF":12.8,"20+":5.61,"20++DTF":12.51},"peso":"0,01","largura":"32","altura":"28","profundidade":"12"},{"sku":"AMSAC004U","nome":"Sacola Amouh","variacoes":"2 variações","personalizacao":"Não","faixas":{"b2c":9.9,"20+":9.41},"peso":"0,12","largura":"35","altura":"34","profundidade":"0,3"},
+{"sku":"AmCxc018P","nome":"Caixa corporativa P com tampa","variacoes":"Kraft — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":19.9,"b2c+DTF":26.8,"20+":18.91,"20++DTF":25.81},"peso":"0,1","largura":"20","altura":"20","profundidade":"9"},
+{"sku":"AmCxc018G","nome":"Caixa corporativa G com tampa","variacoes":"Kraft — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":24.9,"b2c+DTF":31.8,"20+":23.66,"20++DTF":30.56},"peso":"0,15","largura":"27","altura":"27","profundidade":"9"},
+{"sku":"AmCxc018GG","nome":"Caixa corporativa GG com tampa","variacoes":"Kraft — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":34.9,"b2c+DTF":41.8,"20+":33.16,"20++DTF":40.06},"peso":"0,278","largura":"35","altura":"35","profundidade":"9"},
+{"sku":"AmCxc018XG","nome":"Caixa corporativa XG com tampa","variacoes":"Kraft — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":39.9,"b2c+DTF":46.8,"20+":37.91,"20++DTF":44.81},"peso":"0,375","largura":"42","altura":"38","profundidade":"12"},
+{"sku":"AMCPC002P","nome":"Caixa corporativa cartonada P com tampa","variacoes":"Preta — Sem fita","personalizacao":"DTF","faixas":{"b2c":29.9,"b2c+DTF":36.8,"20+":28.41,"20++DTF":35.31},"peso":"0,137","largura":"20","altura":"20","profundidade":"10"},
+{"sku":"AMCTE018U","nome":"Caixa com tampa embutida","variacoes":"Kraft — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":19.9,"b2c+DTF":26.8,"20+":18.91,"20++DTF":25.81},"peso":"0,18","largura":"30","altura":"25","profundidade":"10"},
+{"sku":"AMCGP018U","nome":"Caixa Gaveta Pardo","variacoes":"Kraft — Fita personalizada","personalizacao":"DTF","faixas":{"b2c":21.9,"b2c+DTF":28.8,"20+":19.9,"20++DTF":27.81},"peso":"0,2","largura":"26","altura":"19","profundidade":"10"},
+{"sku":"AMGSBB6002","nome":"Garrafa térmica Super Bottle com borracha 600ml","variacoes":"Azul marinho e preto","personalizacao":"L-DTF","faixas":{"b2c":87.9,"10+":83.51,"20+":81.75,"30+":79.11,"50+":74.72,"70+":69.9,"100+":67.9},"peso":"0,28","largura":"8","altura":"21","profundidade":"8"},
+{"sku":"AMTBA","nome":"Necessaire de Viagem Trip Bag personalizada laser","variacoes":"Azul, Cinza, Preta","personalizacao":"L-DTF","faixas":{"b2c":89.9,"10+":85.41,"20+":83.61,"30+":74.9,"50+":69.9,"70+":64.9,"100+":59.9},"peso":"0,19","largura":"27","altura":"18","profundidade":"3"},
+{"sku":"8563862176055","nome":"Necessaire de viagem Miss Bag G personalizada Laser","variacoes":"Preto e Rosa","personalizacao":"L-DTF","faixas":{"b2c":74.9,"10+":71.16,"20+":69.66,"30+":67.41,"50+":63.67,"70+":59.9,"100+":54.9},"peso":"0,21","largura":"23","altura":"23","profundidade":"2"},
+{"sku":"AMAURP187","nome":"Espumante Aurora Prosecco 187ml","variacoes":"","personalizacao":"Não","faixas":{"b2c":29.9,"10+":29.4,"20+":28.9,"30+":28.4,"50+":27.9,"70+":27.9,"100+":27.9},"peso":"0,3","largura":"6","altura":"19","profundidade":"6"},
+{"sku":"AMWBL002U","nome":"Wine Bag Lisa — case personalizado para vinho","variacoes":"Preta","personalizacao":"L-DTF","faixas":{"b2c":74.9,"10+":67.9,"20+":64.9,"30+":59.9,"50+":54.9,"70+":52.49,"100+":49.9},"peso":"0,4","largura":"9","altura":"40","profundidade":"1"}];
+
+const SUGS=['garrafa','caneca','caixa','mochila','necessaire','taça','bolsa','sacola','kit'];
+
+function norm(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();}
+
+function parsePers(p){
+  if(!p||p==='Não'||p==='nan') return [];
+  const map={'L':'Laser','V':'Vinil','B':'Bordado','DTF':'DTF','FOTO':'Foto','Laser':'Laser'};
+  return [...new Set(p.split(/[-\/\s]+/).map(x=>map[x.trim()]||x.trim()).filter(Boolean))];
+}
+
+function isEmbalagem(f){return 'b2c+DTF' in f;}
+
+function fmt(v){return 'R$ '+v.toFixed(2).replace('.',',');}
+
+function renderFaixas(f){
+  if(isEmbalagem(f)){
+    const gridMobile=`<div class="faixas-grid">
+      <div class="fi"><div class="fi-label">Unitário s/ DTF</div><div class="fi-val">${fmt(f['b2c'])}</div></div>
+      <div class="fi"><div class="fi-label">Unitário c/ DTF</div><div class="fi-val">${fmt(f['b2c+DTF'])}</div></div>
+      <div class="fi"><div class="fi-label">20+ s/ DTF</div><div class="fi-val best">${fmt(f['20+'])}</div></div>
+      <div class="fi"><div class="fi-label">20+ c/ DTF</div><div class="fi-val best">${fmt(f['20++DTF'])}</div></div>
+    </div>`;
+    const tabela=`<table class="preco-table">
+      <thead><tr><th>Faixa</th><th>Sem DTF</th><th>Com DTF</th></tr></thead>
+      <tbody>
+        <tr><td>Unitário</td><td>${fmt(f['b2c'])}</td><td>${fmt(f['b2c+DTF'])}</td></tr>
+        <tr><td>20+ unidades</td><td class="best">${fmt(f['20+'])}</td><td class="best">${fmt(f['20++DTF'])}</td></tr>
+      </tbody>
+    </table>`;
+    return `<div class="sec-label">Preços por volume</div>${tabela}${gridMobile}`;
+  }
+  const keys=Object.keys(f), vals=Object.values(f), minV=Math.min(...vals);
+  let t=`<div class="sec-label">Preços por volume</div><table class="preco-table"><thead><tr><th>Faixa</th>`;
+  keys.forEach(k=>{t+=`<th>${k==='b2c'?'B2C':k}</th>`;});
+  t+=`</tr></thead><tbody><tr><td>Preço</td>`;
+  vals.forEach(v=>{t+=`<td${v===minV?' class="best"':''}>${fmt(v)}</td>`;});
+  t+=`</tr></tbody></table>`;
+  let grid=`<div class="faixas-grid">`;
+  keys.forEach((k,i)=>{
+    const isBest=vals[i]===minV;
+    grid+=`<div class="fi"><div class="fi-label">${k==='b2c'?'B2C':k}</div><div class="fi-val${isBest?' best':''}">${fmt(vals[i])}</div></div>`;
+  });
+  grid+=`</div>`;
+  return t+grid;
+}
+
+function renderCard(p){
+  const pers=parsePers(p.personalizacao);
+  let b='';
+  if(pers.length) b+=pers.map(x=>`<span class="badge badge-pers">${x}</span>`).join('');
+  if(p.variacoes) b+=`<span class="badge badge-var">${p.variacoes}</span>`;
+  const d0=p.largura!==undefined && !(p.largura==='0'&&p.altura==='0'&&p.profundidade==='0');
+  let dims='';
+  if(p.peso&&p.peso!=='0') dims+=`<span class="dim">⚖ ${p.peso} kg</span>`;
+  if(d0) dims+=`<span class="dim">${p.largura} × ${p.altura} × ${p.profundidade} cm</span>`;
+  return `<div class="card">
+    <div class="card-name">${p.nome}</div>
+    <div class="card-sku">${p.sku}</div>
+    ${b?`<div class="badges">${b}</div>`:''}
+    ${renderFaixas(p.faixas)}
+    ${dims?`<div class="dims">${dims}</div>`:''}
+    <button class="add-cart-btn" onclick="abrirQty('${p.sku}')">+ Adicionar ao orçamento</button>
+  </div>`;
+}
+
+function buscar(){
+  const q=norm(document.getElementById('q').value);
+  const res=document.getElementById('results');
+  const cnt=document.getElementById('count');
+  const cl=document.getElementById('clear');
+  cl.classList.toggle('visible',q.length>0);
+  if(!q||q.length<2){res.innerHTML='';cnt.textContent='';mostrarSugs();return;}
+  document.getElementById('sugs').innerHTML='';
+  const found=DADOS.filter(p=>norm(p.nome).includes(q)||norm(p.sku).includes(q));
+  if(!found.length){cnt.textContent='';res.innerHTML='<div class="empty"><strong>Nenhum resultado</strong>Tente outro nome ou código</div>';return;}
+  cnt.textContent=found.length+' produto(s) encontrado(s)';
+  res.innerHTML=found.map(renderCard).join('');
+}
+
+function mostrarSugs(){
+  document.getElementById('sugs').innerHTML=SUGS.map(s=>`<button class="sug" onclick="document.getElementById('q').value='${s}';buscar()">${s}</button>`).join('');
+}
+
+function limpar(){
+  document.getElementById('q').value='';
+  document.getElementById('results').innerHTML='';
+  document.getElementById('count').textContent='';
+  document.getElementById('clear').classList.remove('visible');
+  mostrarSugs();
+}
+
+mostrarSugs();
+document.getElementById('q').addEventListener('input',buscar);
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Escape')limpar();});
+
+
+// ===== CARRINHO =====
+let cart = [];
+let pendingSku = null;
+let persSelected = new Set();
+const PERS_OPCOES = ['Logo Laser','Logo DTF 9x4cm','Nome Laser (não para DTF)','Fita personalizada','Adicional de iniciais','Logo extra'];
+
+function getPriceForQty(faixas, qty){
+  if('b2c+DTF' in faixas) return faixas['b2c'] || 0;
+  const f = faixas;
+  if(qty >= 100 && f['100+']) return f['100+'];
+  if(qty >= 70 && f['70+']) return f['70+'];
+  if(qty >= 50 && f['50+']) return f['50+'];
+  if(qty >= 30 && f['30+']) return f['30+'];
+  if(qty >= 20 && f['20+']) return f['20+'];
+  if(qty >= 10 && f['10+']) return f['10+'];
+  return f['b2c'] || 0;
+}
+
+function temLogo(){
+  return persSelected.has('Logo Laser') || persSelected.has('Logo DTF 9x4cm');
+}
+
+function getPersPreco(tipo, qty, comLogo){
+  if(tipo === 'Logo Laser'){
+    if(qty >= 10) return 0;
+    if(qty >= 7) return 9.90;
+    if(qty >= 4) return 14.90;
+    return 19.90;
+  }
+  if(tipo === 'Logo DTF 9x4cm'){
+    if(qty >= 20) return 6.90;
+    if(qty >= 10) return 9.90;
+    if(qty >= 7) return 14.90;
+    if(qty >= 4) return 19.90;
+    return 24.90;
+  }
+  if(tipo === 'Nome Laser (não para DTF)') return 10.00;
+  if(tipo === 'Fita personalizada') return 3.90;
+  if(tipo === 'Adicional de iniciais'){
+    if(qty >= 30 || comLogo) return 6.90;
+    return 0; // abaixo de 30, sem logo: inclusa (no lugar do logo)
+  }
+  if(tipo === 'Logo extra'){
+    if(qty >= 10) return 6.90;
+    return null; // não disponível
+  }
+  return 0;
+}
+
+function getPersLabel(tipo, qty){
+  const p = getPersPreco(tipo, qty, temLogo());
+  if(p === null) return 'Não disponível';
+  if(p === 0) return 'Incluso';
+  return 'R$ ' + p.toFixed(2).replace('.',',');
+}
+
+function abrirQty(sku){
+  pendingSku = sku;
+  persSelected = new Set();
+  const p = DADOS.find(x=>x.sku===sku);
+  let overlay = document.getElementById('qty-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'qty-overlay';
+    overlay.className = 'qty-modal-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  overlay.innerHTML = `<div class="qty-modal">
+    <h3 id="qty-name"></h3>
+    <p>Informe a quantidade</p>
+    <input type="number" id="qty-input" min="1" value="1" oninput="atualizarPers()" />
+    <div class="pers-section">
+      <div class="pers-section-title">Personalização adicional</div>
+      ${PERS_OPCOES.map(op => `
+        <div class="pers-option" id="pers-${op.replace(/ /g,'_')}" onclick="togglePers('${op}')">
+          <div class="pers-option-left">
+            <div class="pers-option-check" id="check-${op.replace(/ /g,'_')}"></div>
+            <span class="pers-option-name">${op}</span>
+          </div>
+          <span class="pers-option-price" id="price-${op.replace(/ /g,'_')}">${getPersLabel(op,1)}</span>
+        </div>`).join('')}
+    </div>
+    <div class="qty-modal-btns" style="margin-top:14px">
+      <button class="qty-cancel" onclick="fecharQty()">Cancelar</button>
+      <button class="qty-confirm" onclick="confirmarQty()">Adicionar</button>
+    </div>
+  </div>`;
+
+  document.getElementById('qty-name').textContent = p.nome;
+  overlay.style.display = 'flex';
+  setTimeout(()=>document.getElementById('qty-input').focus(), 100);
+  document.getElementById('qty-input').onkeydown = e => { if(e.key==='Enter') confirmarQty(); };
+}
+
+function togglePers(op){
+  const key = op.replace(/ /g,'_');
+  const el = document.getElementById('pers-'+key);
+  const check = document.getElementById('check-'+key);
+  if(persSelected.has(op)){
+    persSelected.delete(op);
+    el.classList.remove('selected');
+    check.textContent = '';
+  } else {
+    persSelected.add(op);
+    el.classList.add('selected');
+    check.textContent = '✓';
+  }
+  atualizarPers();
+}
+
+function atualizarPers(){
+  const qty = parseInt(document.getElementById('qty-input').value) || 1;
+  PERS_OPCOES.forEach(op => {
+    const key = op.replace(/ /g,'_');
+    document.getElementById('price-'+key).textContent = getPersLabel(op, qty);
+  });
+}
+
+function fecharQty(){
+  document.getElementById('qty-overlay').style.display = 'none';
+  pendingSku = null;
+  persSelected = new Set();
+}
+
+function confirmarQty(){
+  const qty = parseInt(document.getElementById('qty-input').value) || 1;
+  const p = DADOS.find(x=>x.sku===pendingSku);
+  const preco = getPriceForQty(p.faixas, qty);
+
+  // Calcular personalização
+  let persTotal = 0;
+  let persNomes = [];
+  const comLogo = temLogo();
+  persSelected.forEach(op => {
+    const pp = getPersPreco(op, qty, comLogo);
+    if(pp === null) return; // não disponível nesta faixa
+    persTotal += pp;
+    if(pp === 0) persNomes.push(op + ' (incluso)');
+    else persNomes.push(op + ' R$ ' + pp.toFixed(2).replace('.',','));
+  });
+
+  cart.push({
+      sku: p.sku,
+      nome: p.nome,
+      qty,
+      preco: preco + persTotal,
+      precoBase: preco,
+      persTotal,
+      persNomes,
+      faixas: p.faixas,
+    });
+  fecharQty();
+  renderCart();
+  document.getElementById('cart-panel').classList.add('open');
+  updateCartCount();
+}
+
+function toggleCart(){
+  document.getElementById('cart-panel').classList.toggle('open');
+}
+
+function updateCartCount(){
+  const total = cart.reduce((s,i)=>s+i.qty,0);
+  document.getElementById('cart-count').textContent = total;
+}
+
+function renderCart(){
+  const el = document.getElementById('cart-items');
+  const totalEl = document.getElementById('cart-total');
+  const totalRowEl = document.getElementById('cart-total-row');
+  const totalVal = document.getElementById('cart-total-val');
+  const unitVal = document.getElementById('cart-unit-val');
+  if(!cart.length){
+    el.innerHTML = '<div class="cart-empty">Nenhum item adicionado ainda.</div>';
+    totalEl.style.display = 'none';
+    totalRowEl.style.display = 'none';
+    return;
+  }
+  let total = 0;
+  let unitTotal = 0;
+  el.innerHTML = cart.map((item,i)=>{
+    item.preco = getPriceForQty(item.faixas, item.qty) + (item.persTotal||0);
+    const sub = item.preco * item.qty;
+    total += sub;
+    unitTotal += item.preco;
+    const persInfo = item.persNomes && item.persNomes.length ? `<span style="font-size:11px;color:var(--text-faint)">${item.persNomes.join(' · ')}</span>` : '';
+    return `<div class="cart-item">
+      <div class="cart-item-name">${item.nome}<br><span class="cart-item-qty">${item.qty} un × R$ ${item.preco.toFixed(2).replace('.',',')}</span>${persInfo?'<br>'+persInfo:''}</div>
+      <div class="cart-item-price">R$ ${sub.toFixed(2).replace('.',',')}</div>
+      <button class="cart-item-remove" onclick="removeItem(${i})">✕</button>
+    </div>`;
+  }).join('');
+  totalEl.style.display = 'flex';
+  totalRowEl.style.display = 'flex';
+  unitVal.textContent = 'R$ ' + unitTotal.toFixed(2).replace('.',',');
+  totalVal.textContent = 'R$ ' + total.toFixed(2).replace('.',',');
+  updateCartCount();
+}
+
+function removeItem(i){
+  cart.splice(i,1);
+  renderCart();
+  updateCartCount();
+}
+
+function clearCart(){
+  if(!cart.length) return;
+  if(confirm('Limpar todos os itens do orçamento?')){ cart=[]; renderCart(); updateCartCount(); }
+}
+
+function exportPDF(){
+  if(!cart.length){ alert('Adicione produtos ao orçamento primeiro.'); return; }
+  const total = cart.reduce((s,i)=>s+((getPriceForQty(i.faixas,i.qty)+(i.persTotal||0))*i.qty),0);
+  const unitTotal = cart.reduce((s,i)=>s+getPriceForQty(i.faixas,i.qty)+(i.persTotal||0),0);
+  const now = new Date().toLocaleDateString('pt-BR');
+  const rows = cart.map(item=>{
+    const preco = getPriceForQty(item.faixas, item.qty) + (item.persTotal||0);
+    const sub = preco * item.qty;
+    const persInfo = item.persNomes && item.persNomes.length ? `<br><span style="font-size:11px;color:#888">${item.persNomes.join(' · ')}</span>` : '';
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:13px">${item.nome}${persInfo}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${item.qty}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right;font-size:13px">R$ ${preco.toFixed(2).replace('.',',')}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:right;font-size:13px;font-weight:600">R$ ${sub.toFixed(2).replace('.',',')}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a1a; }
+    .header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid #132C45; }
+    .logo { width: 44px; height: 44px; background: #132C45; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; }
+    h1 { font-size: 20px; color: #132C45; margin: 0; }
+    .date { font-size: 12px; color: #888; margin: 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background: #132C45; color: #fff; padding: 10px; font-size: 12px; text-align: left; }
+    th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: center; }
+    th:nth-child(3), th:nth-child(4) { text-align: right; }
+    .total-row td { padding: 12px 10px; font-weight: 700; font-size: 15px; border-top: 2px solid #132C45; }
+    .obs { margin-top: 24px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
+  </style>
+  </head><body>
+  <div class="header">
+    <div class="logo">AM</div>
+    <div><h1>Orçamento — Amouh Presentes Personalizados</h1><p class="date">Data: ${now}</p></div>
+  </div>
+  <table>
+    <thead><tr><th>Produto</th><th style="text-align:center">Qtd</th><th style="text-align:right">Preço unit.</th><th style="text-align:right">Subtotal</th></tr></thead>
+    <tbody>${rows}
+      <tr class="total-row"><td colspan="3" style="padding:12px 10px;font-weight:600;border-top:1px solid #eee;color:#666;font-size:13px">VALOR UNITÁRIO DO KIT</td><td style="padding:12px 10px;font-weight:600;text-align:right;border-top:1px solid #eee;color:#666;font-size:13px">R$ ${unitTotal.toFixed(2).replace('.',',')}</td></tr>
+      <tr class="total-row"><td colspan="3" style="padding:12px 10px;font-weight:700;border-top:2px solid #132C45">TOTAL ESTIMADO</td><td style="padding:12px 10px;font-weight:700;text-align:right;border-top:2px solid #132C45;color:#0f6e56;font-size:16px">R$ ${total.toFixed(2).replace('.',',')}</td></tr>
+    </tbody>
+  </table>
+  <div class="obs">* Preços sujeitos a confirmação. Prazo conta a partir do pagamento e OS completa. Este orçamento não constitui contrato.</div>
+  </body></html>`;
+
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 500);
+}
+
+/* ===== LOGIN ===== */
+// sessionStorage pode estar bloqueado dentro do Google Sites; por isso o try/catch.
+function lerAuth(){ try { return sessionStorage.getItem('amouh_auth')==='1'; } catch(e){ return false; } }
+function salvarAuth(){ try { sessionStorage.setItem('amouh_auth','1'); } catch(e){} }
+
+function liberarAcesso(){
+  document.getElementById('lock-screen').style.display = 'none';
+  const orc = document.getElementById('orc-section');
+  if(orc) orc.style.display = 'block';
+}
+
+function verificarSenha(){
+  const senha = document.getElementById('senha-input').value.trim();
+  if(senha === 'Amouh2026&'){
+    salvarAuth();
+    liberarAcesso();
+  } else {
+    document.getElementById('lock-error').style.display = 'block';
+    document.getElementById('senha-input').value = '';
+    document.getElementById('senha-input').focus();
+  }
+}
+
+/* ===== BUSCA POR ORÇAMENTO ===== */
+function buscarPorOrcamento(){
+  const qty = parseInt(document.getElementById('orc-qty').value) || 0;
+  const min = parseFloat(document.getElementById('orc-min').value.replace(',','.')) || 0;
+  const max = parseFloat(document.getElementById('orc-max').value.replace(',','.')) || Infinity;
+  const resDiv = document.getElementById('orc-results');
+
+  if(!qty || qty < 1){ resDiv.innerHTML='<p style="color:#c00;margin:8px 0">Informe a quantidade.</p>'; return; }
+  if(min > max){ resDiv.innerHTML='<p style="color:#c00;margin:8px 0">Preço mínimo maior que o máximo.</p>'; return; }
+
+  // determina faixa correta
+  function faixaParaQty(faixas, q){
+    const ordem=['100+','70+','50+','30+','20+','10+','b2c'];
+    const limites={'100+':100,'70+':70,'50+':50,'30+':30,'20+':20,'10+':10,'b2c':1};
+    for(const f of ordem){ if(faixas[f]!==undefined && q>=limites[f]) return faixas[f]; }
+    // fallback: menor faixa disponível
+    const keys=Object.keys(faixas).filter(k=>!k.includes('+DTF'));
+    return faixas[keys[keys.length-1]];
+  }
+
+  const encontrados = DADOS.filter(p=>{
+    const preco = faixaParaQty(p.faixas, qty);
+    return preco !== undefined && preco >= min && preco <= max;
+  }).sort((a,b)=> faixaParaQty(a.faixas,qty) - faixaParaQty(b.faixas,qty));
+
+  if(!encontrados.length){
+    resDiv.innerHTML='<p style="color:#888;margin:8px 0;font-size:14px">Nenhum produto encontrado nessa faixa para '+qty+' unidades.</p>';
+    return;
+  }
+
+  resDiv.innerHTML = `<p style="color:#0f6e56;font-size:13px;margin:0 0 10px"><strong>${encontrados.length} produto(s)</strong> encontrado(s) para <strong>${qty} unidades</strong> entre <strong>R$${min.toFixed(2).replace('.',',')}${max===Infinity?'':' e R$'+max.toFixed(2).replace('.',',')}</strong>:</p>`
+    + encontrados.map(p=>{
+      const preco = faixaParaQty(p.faixas, qty);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #eee;gap:12px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#132C45">${p.nome}</div>
+          <div style="font-size:11px;color:#888;margin-top:2px">SKU: ${p.sku}${p.variacoes?' · '+p.variacoes:''}</div>
+        </div>
+        <div style="font-size:15px;font-weight:700;color:#0f6e56;white-space:nowrap">R$ ${preco.toFixed(2).replace('.',',')}</div>
+      </div>`;
+    }).join('');
+}
+
+</script>
+
+<style>
+.orc-section{
+  background:#f8f8f6;
+  border:1.5px solid #ddd;
+  border-radius:14px;
+  padding:20px 20px 16px;
+  margin:28px auto 12px;
+  max-width:760px;
+}
+.orc-section h3{
+  font-size:15px;
+  font-weight:700;
+  color:#132C45;
+  margin:0 0 4px;
+}
+.orc-section p.orc-hint{
+  font-size:12px;
+  color:#888;
+  margin:0 0 14px;
+}
+.orc-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:flex-end;
+}
+.orc-field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  flex:1;
+  min-width:90px;
+}
+.orc-field label{
+  font-size:11px;
+  font-weight:600;
+  color:#555;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.orc-field input{
+  height:38px;
+  border:1.5px solid #ccc;
+  border-radius:8px;
+  padding:0 10px;
+  font-size:14px;
+  font-family:inherit;
+  outline:none;
+  background:#fff;
+  transition:border .15s;
+}
+.orc-field input:focus{ border-color:#132C45; }
+.orc-btn{
+  height:38px;
+  padding:0 20px;
+  background:#132C45;
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .15s;
+  flex-shrink:0;
+}
+.orc-btn:hover{ background:#0f6e56; }
+#orc-results{ margin-top:14px; }
+</style>
+
+<div class="orc-section" id="orc-section" style="display:none">
+  <h3>🔍 Busca por Orçamento</h3>
+  <p class="orc-hint">Informe a quantidade e a faixa de preço unitário desejada para ver os produtos compatíveis.</p>
+  <div class="orc-row">
+    <div class="orc-field">
+      <label>Quantidade</label>
+      <input type="number" id="orc-qty" placeholder="Ex: 30" min="1" onkeydown="if(event.key==='Enter')buscarPorOrcamento()">
+    </div>
+    <div class="orc-field">
+      <label>Preço mín. (R$)</label>
+      <input type="text" id="orc-min" placeholder="Ex: 50" onkeydown="if(event.key==='Enter')buscarPorOrcamento()">
+    </div>
+    <div class="orc-field">
+      <label>Preço máx. (R$)</label>
+      <input type="text" id="orc-max" placeholder="Ex: 90" onkeydown="if(event.key==='Enter')buscarPorOrcamento()">
+    </div>
+    <button class="orc-btn" onclick="buscarPorOrcamento()">Buscar</button>
+  </div>
+  <div id="orc-results"></div>
+</div>
+
+<script>
+// Se já fez login nesta aba, libera direto.
+if(lerAuth()) liberarAcesso();
+</script>
+
+</body>
+</html>
